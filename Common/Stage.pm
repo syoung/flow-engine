@@ -92,6 +92,7 @@ has 'started'         =>  ( isa => 'Str', is => 'rw' );
 has 'completed'       =>  ( isa => 'Str', is => 'rw' );
 
 # Hash/Array
+has 'fields'    => ( isa => 'ArrayRef[Str|Undef]', is => 'rw', default => sub { ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] } );
 has 'envarsub'    => ( isa => 'Maybe', is => 'rw', lazy => 1, builder => "setEnvarsub" );
 # has 'customvars'=>    ( isa => 'HashRef', is => 'rw', default => sub {
 #     return {
