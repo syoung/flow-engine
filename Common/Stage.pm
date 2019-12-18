@@ -51,21 +51,20 @@ use Engine::Envar;
 # Booleans
 
 # Int/Nums
-has 'workflowpid'    =>    ( isa => 'Int|Undef', is => 'rw' );
-has 'stagepid'        =>    ( isa => 'Int|Undef', is => 'rw' );
-has 'stagejobid'    =>    ( isa => 'Int|Undef', is => 'rw' );
 has 'appnumber'        =>  ( isa => 'Str', is => 'rw');
 has 'ancestor'        =>  ( isa => 'Str|Undef', is => 'rw');
 has 'successor'        =>  ( isa => 'Str|Undef', is => 'rw');
 has 'workflownumber'=>  ( isa => 'Str', is => 'rw');
 has 'start'         =>  ( isa => 'Int', is => 'rw' );
-has 'submit'         =>  ( isa => 'Int|Undef', is => 'rw' );
 has 'slots'         =>  ( isa => 'Int|Undef', is => 'rw' );
 has 'maxjobs'         =>  ( isa => 'Int|Undef', is => 'rw' );
 has 'runsleep'         =>  ( isa => 'Num|Undef', is => 'rw', default => 0.5 );
 
 # String
-has 'fields'    => ( isa => 'ArrayRef[Str|Undef]', is => 'rw', default => sub { ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] } );
+has 'submit'         =>  ( isa => 'Str|Undef', is => 'rw' );
+has 'workflowpid'    =>    ( isa => 'Str|Undef', is => 'rw' );
+has 'stagepid'        =>    ( isa => 'Str|Undef', is => 'rw' );
+has 'stagejobid'    =>    ( isa => 'Str|Undef', is => 'rw' );
 has 'username'      =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'workflowname'      =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'projectname'       =>  ( isa => 'Str', is => 'rw', required => 1  );
@@ -92,6 +91,7 @@ has 'started'        =>  ( isa => 'Str', is => 'rw' );
 has 'completed'        =>  ( isa => 'Str', is => 'rw' );
 
 # Hash/Array
+has 'fields'    => ( isa => 'ArrayRef[Str|Undef]', is => 'rw', default => sub { ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] } );
 has 'envarsub'    => ( isa => 'Maybe', is => 'rw', lazy => 1, builder => "setEnvarsub" );
 # has 'customvars'=>    ( isa => 'HashRef', is => 'rw', default => sub {
 #     return {
