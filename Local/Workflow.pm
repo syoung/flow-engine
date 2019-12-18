@@ -62,7 +62,7 @@ use Conf::Yaml;
 use Engine::Local::Stage;
 use Engine::Cloud::Instance;     #
 use Engine::Cluster::Monitor::SGE; #
-use Engine::Envar;
+# use Engine::Envar;
 use Table::Main;
 use Exchange::Main;
 
@@ -470,7 +470,7 @@ method runStages ($stages, $dryrun) {
     # $self->logDebug("exchange", $exchange);
     
     #### SELF IS SIPHON WORKER
-    my $worker    =    0;
+    my $worker     =    0;
     $worker        =    1 if defined $self->worker();
     $self->logDebug("worker", $worker);
     
