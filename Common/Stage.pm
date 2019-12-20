@@ -556,6 +556,7 @@ method setArguments ( $stageparameters ) {
     $value  =~  s/<WORKFLOW>/$workflowname/g;
     $value  =~  s/<VERSION>/$version/g if defined $version;
     $value  =~  s/<USERNAME>/$username/g if defined $username;
+    $value  =~  s/<USER>/$username/g if defined $username;
 
     if ( defined $samplehash ) {
       foreach my $key ( keys %$samplehash ) {

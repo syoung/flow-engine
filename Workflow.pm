@@ -14,31 +14,6 @@ use MooseX::Declare;
       
       3. PROVIDE WORKFLOW STATUS
 
-  NOTES
-
-    Workflow::executeWorkflow
-      |
-      |
-      |
-      |
-    Workflow::runStages
-        |
-        |
-        |
-        ->   my $stage = Engine::Stage->new()
-          ...
-          |
-          |
-          -> $stage->run()
-            |
-            |
-            ? DEFINED 'CLUSTER' AND 'SUBMIT'
-            |        |
-            |        |
-            |        YES ->  Engine::Stage::runOnCluster() 
-            |
-            |
-            NO ->  Engine::Stage::runLocally()
 
 =cut
 
@@ -60,31 +35,26 @@ use Data::Dumper;
 # Object
 
 sub new {
-    my $class = shift;
-    my $args  = shift;
+    my $class     = shift;
+    my $hosttype  = shift;
+    my $runtype   = shift;
+    my $args      = shift;
 
     my $modulepath =  $INC{"Engine/Workflow.pm"};
-    # print "modulepath: $modulepath\n";
     my ($path) = $modulepath =~ /^(.+?)\/[^\/]+.pm$/; 
 
-    my $scheduler = $args->{conf}->getKey("core:SCHEDULER");
-    my $runtype = "Local";
-    my $submit = $args->{submit};
-    # print "submit: $submit\n" if defined $submit;
-    # print "submit: undef\n" if not defined $submit;
-    # print "scheduler: $scheduler\n";
 
-    if ( defined $scheduler 
-      and $scheduler ne ""
-      and $scheduler ne "local"  ) {
-      if ( not defined $submit or $submit ne "0" ) {
-        $runtype = "Cluster";
-      }
-    }
-    # print "**** *** *** **** Engine::Workflow    runtype: $runtype\n";
- 
+    $hosttype = uc( substr( $hosttype, 0, 1) ) . substr( $hosttype, 1);
+    $runtype = uc( substr( $runtype, 0, 1) ) . substr( $runtype, 1);
+
+    print "Engine::Workflow    runtype: $runtype\n";
+    print "Engine::Workflow    hosttype: $hosttype\n";
+
+ print "DEBUG EXIT\n";
+ exit;
+
     my $location    = "$path/$runtype/Workflow.pm";
-    $class          = "Engine::" . $runtype . "::Workflow";
+    $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
     require $location;
 
     return $class->new( $args );

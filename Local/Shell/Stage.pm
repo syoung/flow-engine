@@ -42,15 +42,15 @@ use FindBin qw($Bin);
 #### INTERNAL MODULES
 use Engine::Envar;
 
-# Booleans
+# Bool
 
-# Int/Nums
+# Int
 
-# String
+# Str
 
-# Hash/Array
+# HashRef/ArrayRef
 
-# Object
+# Class/Object
 
 
 method BUILD ($args) {
@@ -298,9 +298,9 @@ method printScriptFile ($scriptfile, $command, $exitfile, $lockfile) {
 
 echo "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
 echo USERNAME:              \$USERNAME
-echo PROJECT:                 \$PROJECT
-echo WORKFLOW:                \$WORKFLOW
-echo QUEUE:                   \$QUEUE
+echo PROJECT:               \$PROJECT
+echo WORKFLOW:              \$WORKFLOW
+echo QUEUE:                 \$QUEUE
 echo "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
 
 hostname -f
@@ -508,7 +508,7 @@ AND appnumber = '$appnumber'};
     }
 }
 
-method setQueued {
+method setQueued () {
     $self->logDebug("$$ Stage::setQueued(set)");
     my $now = $self->table()->db()->now();
     my $set = qq{
@@ -519,7 +519,7 @@ completed     =     ''};
     $self->setFields($set);
 }
 
-method setRunning {
+method setRunning () {
     $self->logDebug("$$ Stage::setRunning(set)");
     my $now = $self->table()->db()->now();
     my $set = qq{
@@ -572,11 +572,11 @@ AND appnumber = '$appnumber'};
     $self->logError("Could not update stage table with stagepid: $stagepid") and exit if not $success;
 }
 
-method toString {
+method toString () {
     print $self->_toString();
 }
 
-method _toString {
+method _toString () {
     my @keys = qw[ username projectname workflownumber workflowname appname appnumber start executor location fileroot outputdir scriptfile stdoutfile stderrfile workflowpid stagepid stagejobid submit setuid installdir cluster qsub qstat resultfile];
     my $string = '';
     foreach my $key ( @keys )

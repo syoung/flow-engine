@@ -223,17 +223,17 @@ method executeProject {
 method executeWorkflow ($data) {
     $self->logNote("data", $data);
     my $username             =    $data->{username};
-    my $cluster             =    $data->{cluster};
-    my $projectname     =    $data->{projectname};
-    my $workflowname     =    $data->{workflowname};
-    my $workflownumber=    $data->{workflownumber};
-    my $samplehash         =    $data->{samplehash};
-    my $submit                 = $data->{submit};
-    my $start                    =    $data->{start};
-    my $stop                    =    $data->{stop};
-    my $dryrun                =    $data->{dryrun};
+    my $cluster              =    $data->{cluster};
+    my $projectname          =    $data->{projectname};
+    my $workflowname         =    $data->{workflowname};
+    my $workflownumber       =    $data->{workflownumber};
+    my $samplehash           =    $data->{samplehash};
+    my $submit               =    $data->{submit};
+    my $start                =    $data->{start};
+    my $stop                 =    $data->{stop};
+    my $dryrun               =    $data->{dryrun};
     my $scheduler            =    $self->conf()->getKey("core:SCHEDULER");
-    my $force         =    $self->force() || $data->{force};
+    my $force                =    $self->force() || $data->{force};
     $self->logDebug("force", $force);
     $self->force($force);
     
@@ -253,11 +253,11 @@ method executeWorkflow ($data) {
 
     $data = {
         username                =>    $username,
-        projectname                    =>    $projectname,
-        workflowname                =>    $workflowname,
-        workflownumber    =>     $workflownumber,
-        start                        =>    $start,
-        samplehash            =>    $samplehash
+        projectname             =>    $projectname,
+        workflowname            =>    $workflowname,
+        workflownumber          =>    $workflownumber,
+        start                   =>    $start,
+        samplehash              =>    $samplehash
     };
 
     #### QUIT IF INSUFFICIENT INPUTS

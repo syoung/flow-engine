@@ -382,6 +382,7 @@ method addQueueSample ($uuid, $status, $data) {
 
 #### EXECUTE SAMPLE WORKFLOWS IN PARALLEL
 method runInParallel ($workflowhash, $sampledata) {
+
 =head2
 
   SUBROUTINE    executeCluster
