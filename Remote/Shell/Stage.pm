@@ -2,7 +2,7 @@ use MooseX::Declare;
 
 =head2
 
-    PACKAGE        Engine::Local::Shell::Stage
+    PACKAGE        Engine::Remote::Shell::Stage
     
     PURPOSE:
     
@@ -27,7 +27,7 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../";
 
-class Engine::Local::Shell::Stage with (Engine::Common::Stage,
+class Engine::Remote::Shell::Stage with (Engine::Common::Stage,
     Util::Logger, 
     Util::Timer) {
 

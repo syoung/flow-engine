@@ -50,10 +50,7 @@ sub new {
     print "Engine::Workflow    runtype: $runtype\n";
     print "Engine::Workflow    hosttype: $hosttype\n";
 
- print "DEBUG EXIT\n";
- exit;
-
-    my $location    = "$path/$runtype/Workflow.pm";
+    my $location    = "$path/$hosttype/$runtype/Workflow.pm";
     $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
     require $location;
 

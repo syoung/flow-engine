@@ -16,32 +16,6 @@ use Method::Signatures::Simple;
       
       3. PROVIDE WORKFLOW STATUS
 
-  NOTES
-
-    Workflow::executeWorkflow
-      |
-      |
-      |
-      |
-    Workflow::runStages
-        |
-        |
-        |
-        ->   my $stage = Engine::Stage->new()
-          ...
-          |
-          |
-          -> $stage->run()
-            |
-            |
-            ? DEFINED 'CLUSTER' AND 'SUBMIT'
-            |        |
-            |        |
-            |        YES ->  Engine::Stage::runOnCluster() 
-            |
-            |
-            NO ->  Engine::Stage::runLocally()
-
 =cut
 
 use strict;
@@ -56,7 +30,7 @@ use lib FindBin::Real::Bin() . "/lib";
 
 ##### INTERNAL MODULES  
 use Conf::Yaml;
-use Engine::Local::Stage;
+use Engine::Local::Shell::Stage;
 use Engine::Envar;
 use Table::Main;
 use Exchange::Main;

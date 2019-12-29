@@ -46,7 +46,7 @@ use strict;
 use warnings;
 use Carp;
 
-class Engine::Local::Shell::Workflow with (Engine::Common::Workflow, 
+class Engine::Remote::Shell::Workflow with (Engine::Common::Workflow, 
     Util::Logger, 
     Util::Timer) {
 
@@ -59,7 +59,7 @@ use TryCatch;
 ##### INTERNAL MODULES    
 use DBase::Factory;
 use Conf::Yaml;
-use Engine::Local::Shell::Stage;
+use Engine::Remote::Shell::Stage;
 use Engine::Cloud::Instance;     #
 use Engine::Cluster::Monitor::SGE; #
 # use Engine::Envar;
@@ -221,7 +221,8 @@ method executeProject {
 
 #### EXECUTE WORKFLOW IN SERIES
 method executeWorkflow ($data) {
-    $self->logNote("data", $data);
+    $self->logDebug("data", $data);
+    my $profile              =    $data->{profile};
     my $username             =    $data->{username};
     my $cluster              =    $data->{cluster};
     my $projectname          =    $data->{projectname};
@@ -291,7 +292,7 @@ method executeWorkflow ($data) {
 
     #### RUN LOCALLY OR ON CLUSTER
     $self->logDebug("DOING self->runLocally");
-    my $success    =    $self->runLocally($stages, $username, $projectname, $workflowname, $workflownumber, $cluster, $dryrun);
+    my $success    =    $self->runLocally( $profile, $stages, $username, $projectname, $workflowname, $workflownumber, $cluster, $dryrun );
     $self->logDebug("success", $success);
 
     #### SET WORKFLOW STATUS
@@ -442,12 +443,12 @@ method runInParallel ($workflowhash, $sampledata) {
 }
 
 #### RUN STAGES 
-method runLocally ($stages, $username, $projectname, $workflowname, $workflownumber, $cluster, $dryrun) {
+method runLocally ($profile, $stages, $username, $projectname, $workflowname, $workflownumber, $cluster, $dryrun) {
     $self->logDebug("# stages", scalar(@$stages));
 
     #### RUN STAGES
     $self->logDebug("BEFORE runStages()\n");
-    my $success    =    $self->runStages($stages, $dryrun);
+    my $success    =    $self->runStages($profile, $stages, $dryrun);
     $self->logDebug("AFTER runStages    success: $success\n");
     
     if ( $success == 0 ) {
@@ -462,7 +463,7 @@ method runLocally ($stages, $username, $projectname, $workflowname, $workflownum
     return $success;
 }
 
-method runStages ($stages, $dryrun) {
+method runStages ( $profile, $stages, $dryrun ) {
     $self->logDebug("no. stages", scalar(@$stages));
 
     # #### SET EXCHANGE    
@@ -671,7 +672,7 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
             $stage->{stderrfile}     =     "$stderrdir/$stagenumber-$stagename-$id.stderr";
         }
 
-        my $stageobject = Engine::Local::Shell::Stage->new($stage);
+        my $stageobject = Engine::Remote::Shell::Stage->new($stage);
 
         #### NEAT PRINT STAGE
         #$stageobject->toString();
