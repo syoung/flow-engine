@@ -14,32 +14,6 @@ use MooseX::Declare;
             
             3. PROVIDE WORKFLOW STATUS
 
-    NOTES
-
-        Workflow::executeWorkflow
-            |
-            |
-            |
-            |
-        Workflow::runStages
-                |
-                |
-                |
-                ->     my $stage = Engine::Stage->new()
-                    ...
-                    |
-                    |
-                    -> $stage->run()
-                        |
-                        |
-                        ? DEFINED 'CLUSTER' AND 'SUBMIT'
-                        |                |
-                        |                |
-                        |                YES ->  Engine::Stage::runOnCluster() 
-                        |
-                        |
-                        NO ->  Engine::Stage::runLocally()
-
 =cut
 
 use strict;
@@ -55,13 +29,14 @@ use Data::Dumper;
 use FindBin::Real;
 use lib FindBin::Real::Bin() . "/lib";
 use TryCatch;
+use File::Path;
 
 ##### INTERNAL MODULES    
 use DBase::Factory;
 use Conf::Yaml;
 use Engine::Remote::Shell::Stage;
-use Engine::Cloud::Instance;     #
-use Engine::Cluster::Monitor::SGE; #
+# use Engine::Cloud::Instance;     #
+# use Engine::Cluster::Monitor::SGE; #
 # use Engine::Envar;
 use Table::Main;
 use Exchange::Main;
@@ -105,10 +80,10 @@ has 'jsonparser'    =>     ( isa => 'JSON', is => 'rw', lazy => 1, builder => "s
 has 'json'                =>     ( isa => 'HashRef', is => 'rw', required => 0 );
 has 'stages'            =>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
 has 'stageobjects'=>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
-has 'starcluster'    =>     ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
-has 'head'                =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
-has 'master'            =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
-has 'monitor'            =>     ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
+
+# has 'starcluster'    =>     ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
+# has 'head'                =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
+# has 'master'            =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
 has 'worker'            =>     ( isa => 'Maybe', is => 'rw', required => 0 );
 has 'virtual'            =>     ( isa => 'Any', is => 'rw', lazy    =>    1, builder    =>    "setVirtual" );
 
@@ -348,7 +323,7 @@ method addQueueSample ($uuid, $status, $data) {
 method runInParallel ($workflowhash, $sampledata) {
 =head2
 
-    SUBROUTINE        executeCluster
+    SUBROUTINE        runInParallel
     
     PURPOSE
     
@@ -405,9 +380,6 @@ method runInParallel ($workflowhash, $sampledata) {
     #### GET OUTPUT DIR
     my $outputdir =  "$fileroot/$projectname/$workflowname/";
     
-    #### GET MONITOR
-    my $monitor    =    $self->updateMonitor() if $scheduler eq "sge";
-
     #### SET FILE DIRS
     my ($scriptdir, $stdoutdir, $stderrdir) = $self->setFileDirs($fileroot, $projectname, $workflowname);
     $self->logDebug("scriptdir", $scriptdir);
@@ -475,6 +447,7 @@ method runStages ( $profile, $stages, $dryrun ) {
     $worker        =    1 if defined $self->worker();
     $self->logDebug("worker", $worker);
     
+
     for ( my $stagecounter = 0; $stagecounter < @$stages; $stagecounter++ ) {
         $self->logDebug("stagecounter", $stagecounter);
         my $stage = $$stages[$stagecounter];
@@ -488,20 +461,18 @@ method runStages ( $profile, $stages, $dryrun ) {
 
         my $stage_number = $stage->appnumber();
         my $stage_name = $stage->appname();
-        
         my $username    =    $stage->username();
         my $projectname        =    $stage->projectname();
         my $workflowname    =    $stage->workflowname();
-        
         my $mysqltime    =    $self->getMysqlTime();
         $self->logDebug("mysqltime", $mysqltime);
         $stage->started($mysqltime);
         
         #### CLEAR STDOUT/STDERR FILES
         my $stdoutfile    =    $stage->stdoutfile();
-        `rm -fr $stdoutfile` if -f $stdoutfile;
+        File::Path::rmtree( $stdoutfile ) if -f $stdoutfile;
         my $stderrfile    =    $stage->stderrfile();
-        `rm -fr $stderrfile` if -f $stderrfile;
+        File::Path::rmtree(  $stderrfile ) if -f $stderrfile;
         
         #### REPORT STARTING STAGE
         $self->bigDisplayBegin("'$projectname.$workflowname' stage $stage_number $stage_name status: RUNNING");
@@ -523,7 +494,7 @@ method runStages ( $profile, $stages, $dryrun ) {
         
         ####  RUN STAGE
         $self->logDebug("Running stage $stage_number", $stage_name);    
-        my ($exitcode) = $stage->run($dryrun);
+        my ($exitcode) = $stage->run( $profile, $dryrun );
         $self->logDebug("Stage $stage_number-$stage_name exitcode", $exitcode);
 
         #### STOP IF THIS STAGE DIDN'T COMPLETE SUCCESSFULLY
@@ -645,6 +616,32 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
         $stage->{conf}                =      $self->conf();
         $stage->{fileroot}        =      $fileroot;
         $stage->{userhome}        =      $userhome;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         #### SET SGE ENVIRONMENT VARIABLES
         $stage->{envar} = $envar;

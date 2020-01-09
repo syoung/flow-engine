@@ -84,7 +84,7 @@ has 'stageobjects'=>   ( isa => 'ArrayRef', is => 'rw', required => 0 );
 has 'starcluster'  =>   ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
 has 'head'        =>   ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
 has 'master'      =>   ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
-has 'monitor'      =>   ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
+# has 'monitor'      =>   ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
 has 'worker'      =>   ( isa => 'Maybe', is => 'rw', required => 0 );
 has 'virtual'      =>   ( isa => 'Any', is => 'rw', lazy  =>  1, builder  =>  "setVirtual" );
 
@@ -488,26 +488,6 @@ method ensureSgeRunning ($username, $cluster, $projectname, $workflowname) {
 
 #### STAGES
 
-method setFileDirs ($fileroot, $projectname, $workflowname) {
-  $self->logDebug("fileroot", $fileroot);
-  $self->logDebug("projectname", $projectname);
-  $self->logDebug("workflowname", $workflowname);
-  my $scriptdir = $self->util()->createDir("$fileroot/$projectname/$workflowname/script");
-  my $stdoutdir = $self->util()->createDir("$fileroot/$projectname/$workflowname/stdout");
-  my $stderrdir = $self->util()->createDir("$fileroot/$projectname/$workflowname/stdout");
-  $self->logDebug("scriptdir", $scriptdir);
-
-  #### CREATE DIRS  
-  `mkdir -p $scriptdir` if not -d $scriptdir;
-  `mkdir -p $stdoutdir` if not -d $stdoutdir;
-  `mkdir -p $stderrdir` if not -d $stderrdir;
-  $self->logError("Cannot create directory scriptdir: $scriptdir") and return undef if not -d $scriptdir;
-  $self->logError("Cannot create directory stdoutdir: $stdoutdir") and return undef if not -d $stdoutdir;
-  $self->logError("Cannot create directory stderrdir: $stderrdir") and return undef if not -d $stderrdir;    
-
-  return $scriptdir, $stdoutdir, $stderrdir;
-}
-
 method getStageApp ($stage) {
   $self->logDebug("stage", $stage);
   
@@ -677,85 +657,9 @@ method checkPrevious ($stages, $data) {
   return 1;
 }
 
-method setStageParameters ($stages, $data) {
-  #### GET THE PARAMETERS FOR THE STAGES WE WANT TO RUN
-  #$self->logDebug("stages", $stages);
-  #$self->logDebug("data", $data);
-  
-  my $start = $data->{start} || 1;
-  $start--;
-  for ( my $i = $start; $i < @$stages; $i++ ) {
-    my $keys = ["username", "projectname", "workflowname", "appname", "appnumber"];
-    my $where = $self->table()->db()->where($$stages[$i], $keys);
-    my $query = qq{SELECT * FROM stageparameter
-$where AND paramtype='input'
-ORDER BY ordinal};
-    $self->logDebug("query", $query);
-
-    my $stageparameters = $self->table()->db()->queryhasharray($query);
-    $self->logNote("stageparameters", $stageparameters);
-    $$stages[$i]->{stageparameters} = $stageparameters;
-  }
-  
-  return $stages;
-}
-
-method setStartStop ($stages, $json) {
-  $self->logDebug("# stages", scalar(@$stages));
-  $self->logDebug("stages is empty") and return if not scalar(@$stages);
-
-  my $start = $self->start();
-  my $stop = $self->stop();
-  $self->logDebug("self->start", $self->start());
-  $self->logDebug("self->stop", $self->stop());
-
-  #### SET DEFAULTS  
-  $start  =  1 if not defined $start;
-  $stop   =  scalar(@$stages) + 1 if not defined $stop;
-  $self->logDebug("start", $start);
-  $self->logDebug("stop", $stop);
-
-  $self->logDebug("start not defined") and return if not defined $start;
-  $self->logDebug("start is non-numeric: $start") and return if $start !~ /^\d+$/;
-
-  if ( $start > @$stages ) {
-    print "Stage start ($start) is greater than the number of stages: " . scalar(@$stages) . "\n";
-    $self->logDebug("Stage start ($start) is greater than the number of stages");
-    return;
-
-  }
-
-  if ( defined $stop and $stop ne '' ) {
-    if ( $stop !~ /^\d+$/ ) {
-      $self->logDebug("Stage stop is non-numeric: $stop");
-      return;
-    }
-    elsif ( $stop > scalar(@$stages) + 1 ) {
-      print "Stage stop ($stop) is greater than total stages: " . scalar(@$stages) . "\n";
-      $self->logDebug("Stage stop ($stop) is greater than total stages: " . scalar(@$stages) );
-      return;
-    }
-  }
-  else {
-    $stop = scalar(@$stages) + 1;
-  }
-  
-  if ( $start > $stop ) {
-    print "Stage start ($start) is greater than stage stop ($stop)\n";
-    $self->logDebug("start ($start) is greater than stop ($stop)");
-    return;
-  }
-
-  $self->logNote("$$ Setting start: $start");  
-  $self->logNote("$$ Setting stop: $stop");
-  
-  $self->start($start);
-  $self->stop($stop);
-  
-  return ($start, $stop);
-}
 
 ### QUEUE MONITOR
+
 method setMonitor {
   my $scheduler  =  $self->scheduler();
   $self->logCaller("scheduler", $scheduler);
@@ -801,30 +705,34 @@ method updateMonitor {
   #   envar          =>  $self->envar(),
   #   logfile        =>  $self->logfile(),
   #   log            =>  $self->log(),
-  #   printlog      =>  $self->printlog()
+  #   printlog      =>  $self->?/printlog()
   # });
 
-  my $monitor = Engine::Cluster::Monitor::SGE->new({
-    conf          =>  $self->conf(),
-    whoami        =>  $self->whoami(),
-    pid            =>  $self->workflowpid(),
-    table           =>  $self->table(),
-    username      =>  $self->username(),
-    projectname    =>  $self->projectname(),
-    workflowname  =>  $self->workflowname(),
-    cluster        =>  $self->cluster(),
-    envar          =>  $self->envar(),
+$self->logDebug( "DEBUG EXIT" ) and exit;
 
-    logfile        =>  $self->logfile(),
-    log            =>  $self->log(),
-    printlog      =>  $self->printlog()
-  });
-  $self->logDebug("monitor", $monitor);
+# ####  LATER: REFACTOR INTO SEPARATE Cluster::Common CLASS
 
-  # $self->monitor($monitor);
+#   my $monitor = Engine::Cluster::Monitor::SGE->new({
+#     conf          =>  $self->conf(),
+#     whoami        =>  $self->whoami(),
+#     pid            =>  $self->workflowpid(),
+#     table           =>  $self->table(),
+#     username      =>  $self->username(),
+#     projectname    =>  $self->projectname(),
+#     workflowname  =>  $self->workflowname(),
+#     cluster        =>  $self->cluster(),
+#     envar          =>  $self->envar(),
 
-  # return $self->monitor();
-  return $monitor;
+#     logfile        =>  $self->logfile(),
+#     log            =>  $self->log(),
+#     printlog      =>  $self->printlog()
+#   });
+#   $self->logDebug("monitor", $monitor);
+
+#   # $self->monitor($monitor);
+
+#   # return $self->monitor();
+#   return $monitor;
 }
 
 #### STOP WORKFLOW

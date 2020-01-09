@@ -33,7 +33,7 @@ my $configfile	=   "$installdir/conf/config.yml";
 #### SET $Bin
 $Bin =~ s/^.+t\/bin/$installdir\/t\/bin/;
 	
-use Test::Engine::Common::Ssh;
+use Test::Engine::Remote::Ssh;
 use Getopt::Long;
 use FindBin qw($Bin);
 use Conf::Yaml;
@@ -85,7 +85,7 @@ my $conf = Conf::Yaml->new(
 #### GET TEST USER
 my $username    =   $conf->getKey("database:TESTUSER");
 
-my $object = new Test::Engine::Common::Ssh(
+my $object = new Test::Engine::Remote::Ssh(
     log			=>	$log,
     printlog    =>  $printlog,
     logfile     =>  $logfile,

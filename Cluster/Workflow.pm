@@ -505,13 +505,6 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
   $self->logDebug("workflowname", $workflowname);
   $self->logDebug("scheduler", $scheduler);
   
-  # #### GET SLOTS (NUMBER OF CPUS ALLOCATED TO CLUSTER JOB)
-  # my $slots  =  undef;
-  # if ( defined $scheduler and $scheduler eq "sge" ) {
-  #   $slots = $self->getSlots($username, $cluster);
-  # }
-  # $self->logDebug("slots", $slots);
-  
   #### SET STAGES
   my $stages = $self->table()->getStagesByWorkflow($data);
   $self->logDebug("# stages", scalar(@$stages) );
@@ -579,12 +572,15 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
     my $stage_number = $counter + 1;
 
     $stage->{username}    =    $username;
-    $stage->{cluster}      =    $cluster;
     $stage->{workflowpid}  =    $workflowpid;
     $stage->{table}        =    $self->table();
     $stage->{conf}        =    $self->conf();
     $stage->{fileroot}    =    $fileroot;
     $stage->{userhome}    =    $userhome;
+
+
+    #### SET CLUSTER
+    $stage->{cluster}      =    $cluster;
 
     #### SET SCHEDULER
     $stage->{scheduler}    =  $scheduler;
@@ -592,23 +588,26 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
     #### SET MONITOR
     $stage->{monitor} = $monitor;
 
-    #### SET SGE ENVIRONMENT VARIABLES
-    $stage->{envar} = $envar;
-    
-    #### MAX JOBS
-    $stage->{maxjobs}    =  $self->maxjobs();
-
     # #### SLOTS
     # $stage->{slots}      =  $slots;
 
     #### QUEUE
     $stage->{qsuboptions}      =    $qsuboptions;
 
+    $stage->{qsub}      =    $self->conf()->getKey("scheduler:QSUB");
+    $stage->{qstat}      =    $self->conf()->getKey("scheduler:QSTAT");
+
+
+
+    #### SET SGE ENVIRONMENT VARIABLES
+    $stage->{envar} = $envar;
+    
+    #### MAX JOBS
+    $stage->{maxjobs}    =  $self->maxjobs();
+
     #### SAMPLE HASH
     $stage->{samplehash}  =    $samplehash;
     $stage->{outputdir}    =    $outputdir;
-    $stage->{qsub}      =    $self->conf()->getKey("scheduler:QSUB");
-    $stage->{qstat}      =    $self->conf()->getKey("scheduler:QSTAT");
 
     #### LOG
     $stage->{log}       =  $self->log();

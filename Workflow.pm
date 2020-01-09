@@ -35,28 +35,34 @@ use Data::Dumper;
 # Object
 
 sub new {
-    my $class     = shift;
-    my $hosttype  = shift;
-    my $runtype   = shift;
-    my $args      = shift;
+  my $class     = shift;
+  my $hosttype  = shift;
+  my $runtype   = shift;
+  my $args      = shift;
 
-    my $modulepath =  $INC{"Engine/Workflow.pm"};
-    my ($path) = $modulepath =~ /^(.+?)\/[^\/]+.pm$/; 
+  my $modulepath =  $INC{"Engine/Workflow.pm"};
+  my ($path) = $modulepath =~ /^(.+?)\/[^\/]+.pm$/; 
 
 
-    $hosttype = uc( substr( $hosttype, 0, 1) ) . substr( $hosttype, 1);
-    $runtype = uc( substr( $runtype, 0, 1) ) . substr( $runtype, 1);
+  $hosttype = cowCase( $hosttype );
+  $runtype = cowCase( $runtype );
+  print "Engine::Workflow    runtype: $runtype\n";
+  print "Engine::Workflow    hosttype: $hosttype\n";
 
-    print "Engine::Workflow    runtype: $runtype\n";
-    print "Engine::Workflow    hosttype: $hosttype\n";
+  my $location    = "$path/$hosttype/$runtype/Workflow.pm";
+  $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
+  require $location;
 
-    my $location    = "$path/$hosttype/$runtype/Workflow.pm";
-    $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
-    require $location;
-
-    return $class->new( $args );
+  return $class->new( $args );
 }
-    
-  Engine::Workflow->meta->make_immutable(inline_constructor => 0);
+
+sub cowCase {
+  my $string = shift;
+
+  return uc( substr( $string, 0, 1) ) . substr( $string, 1);
+}
+
+
+Engine::Workflow->meta->make_immutable(inline_constructor => 0);
 
 }  #### class

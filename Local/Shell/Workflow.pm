@@ -2,7 +2,7 @@ use MooseX::Declare;
 
 =head2
 
-    PACKAGE        Engine::Workflow
+    PACKAGE        Engine::Local::Shell::Workflow
     
     PURPOSE
     
@@ -13,32 +13,6 @@ use MooseX::Declare;
             2. RUN WORKFLOWS
             
             3. PROVIDE WORKFLOW STATUS
-
-    NOTES
-
-        Workflow::executeWorkflow
-            |
-            |
-            |
-            |
-        Workflow::runStages
-                |
-                |
-                |
-                ->     my $stage = Engine::Stage->new()
-                    ...
-                    |
-                    |
-                    -> $stage->run()
-                        |
-                        |
-                        ? DEFINED 'CLUSTER' AND 'SUBMIT'
-                        |                |
-                        |                |
-                        |                YES ->  Engine::Stage::runOnCluster() 
-                        |
-                        |
-                        NO ->  Engine::Stage::runLocally()
 
 =cut
 
@@ -67,62 +41,63 @@ use Table::Main;
 use Exchange::Main;
 
 #### BOOLEAN
-has 'force'    => ( isa => 'Bool', is => 'rw', default     =>     0     );
-has 'dryrun'        =>     ( isa => 'Bool', is => 'rw'    );
+has 'force'          =>  ( isa => 'Bool', is => 'rw', default => 0 );
+has 'dryrun'         =>  ( isa => 'Bool', is => 'rw' );
 
 # Integers
-has 'workflowpid'    =>     ( isa => 'Int|Undef', is => 'rw', required => 0 );
-has 'workflownumber'=>  ( isa => 'Int|Undef', is => 'rw' );
-has 'start'         =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'stop'             =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'submit'          =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'validated'        =>     ( isa => 'Int|Undef', is => 'rw', default => 0 );
-has 'qmasterport'    =>     ( isa => 'Int', is  => 'rw' );
-has 'execdport'        =>     ( isa => 'Int', is  => 'rw' );
-has 'maxjobs'            =>     ( isa => 'Int', is => 'rw'    );
+has 'workflowpid'    =>  ( isa => 'Int|Undef', is => 'rw', required => 0 );
+has 'workflownumber' =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'start'          =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'stop'           =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'submit'         =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'validated'      =>  ( isa => 'Int|Undef', is => 'rw', default => 0 );
+has 'qmasterport'    =>  ( isa => 'Int', is  => 'rw' );
+has 'execdport'      =>  ( isa => 'Int', is  => 'rw' );
+has 'maxjobs'        =>  ( isa => 'Int', is => 'rw'  );
 
 # String
+has 'profile'        =>  ( isa => 'Str|Undef', is => 'rw' );
 has 'sample'         =>  ( isa => 'Str|Undef', is => 'rw' );
-has 'scheduler'         =>     ( isa => 'Str|Undef', is => 'rw', default    =>    "local");
-has 'random'            =>     ( isa => 'Str|Undef', is => 'rw', required    =>     0);
-has 'configfile'    =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'installdir'    =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'fileroot'        =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'whoami'          =>  ( isa => 'Str', is => 'rw', lazy    =>    1, builder => "setWhoami" );
-has 'username'      =>  ( isa => 'Str', is => 'rw' );
-has 'password'      =>  ( isa => 'Str', is => 'rw' );
-has 'workflowname'=>  ( isa => 'Str', is => 'rw' );
-has 'projectname' =>  ( isa => 'Str', is => 'rw' );
-has 'outputdir'        =>  ( isa => 'Str', is => 'rw' );
-has 'upgradesleep'=>     ( isa => 'Int', is  => 'rw', default    =>    10    );
+has 'scheduler'      =>  ( isa => 'Str|Undef', is => 'rw', default => "local");
+has 'random'         =>  ( isa => 'Str|Undef', is => 'rw', required => 0);
+has 'configfile'     =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'installdir'     =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'fileroot'       =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'whoami'         =>  ( isa => 'Str', is => 'rw', lazy    =>    1, builder => "setWhoami" );
+has 'username'       =>  ( isa => 'Str', is => 'rw' );
+has 'password'       =>  ( isa => 'Str', is => 'rw' );
+has 'workflowname'   =>  ( isa => 'Str', is => 'rw' );
+has 'projectname'    =>  ( isa => 'Str', is => 'rw' );
+has 'outputdir'      =>  ( isa => 'Str', is => 'rw' );
+has 'upgradesleep'   =>  ( isa => 'Int', is  => 'rw', default => 10    );
 
 # Object
-has 'data'                =>     ( isa => 'HashRef|Undef', is => 'rw', default => undef );
-has 'samplehash'    =>     ( isa => 'HashRef|Undef', is => 'rw', required    =>    0    );
-has 'ssh'                    =>     ( isa => 'Util::Ssh', is => 'rw', required    =>    0    );
-has 'opsinfo'            =>     ( isa => 'Ops::MainInfo', is => 'rw', required    =>    0    );    
-has 'jsonparser'    =>     ( isa => 'JSON', is => 'rw', lazy => 1, builder => "setJsonParser" );
-has 'json'                =>     ( isa => 'HashRef', is => 'rw', required => 0 );
-has 'stages'            =>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
-has 'stageobjects'=>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
-has 'starcluster'    =>     ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
-has 'head'                =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
-has 'master'            =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
-has 'monitor'            =>     ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
-has 'worker'            =>     ( isa => 'Maybe', is => 'rw', required => 0 );
-has 'virtual'            =>     ( isa => 'Any', is => 'rw', lazy    =>    1, builder    =>    "setVirtual" );
+has 'data'           =>  ( isa => 'HashRef|Undef', is => 'rw', default => undef );
+has 'samplehash'     =>  ( isa => 'HashRef|Undef', is => 'rw', required => 0    );
+has 'ssh'            =>  ( isa => 'Util::Ssh', is => 'rw', required => 0    );
+has 'opsinfo'        =>  ( isa => 'Ops::MainInfo', is => 'rw', required => 0    );    
+has 'jsonparser'     =>  ( isa => 'JSON', is => 'rw', lazy => 1, builder => "setJsonParser" );
+has 'json'           =>  ( isa => 'HashRef', is => 'rw', required => 0 );
+has 'stages'         =>  ( isa => 'ArrayRef', is => 'rw', required => 0 );
+has 'stageobjects'   =>  ( isa => 'ArrayRef', is => 'rw', required => 0 );
+has 'starcluster'    =>  ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
+has 'head'           =>  ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
+has 'master'         =>  ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
+has 'monitor'        =>  ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
+has 'worker'         =>  ( isa => 'Maybe', is => 'rw', required => 0 );
+has 'virtual'        =>  ( isa => 'Any', is => 'rw', lazy    =>    1, builder    =>    "setVirtual" );
 
-has 'envarsub'    => ( isa => 'Maybe', is => 'rw' );
-has 'customvars'=>    ( isa => 'HashRef', is => 'rw' );
+has 'envarsub'       =>  ( isa => 'Maybe', is => 'rw' );
+has 'customvars'     =>  ( isa => 'HashRef', is => 'rw' );
 
-has 'db'            =>     ( 
+has 'db'             =>  ( 
     is => 'rw', 
     isa => 'Any', 
     # lazy    =>    1,    
     # builder    =>    "setDbObject" 
 );
 
-has 'conf'            =>     ( 
+has 'conf'           =>  ( 
     is => 'rw',
     isa => 'Conf::Yaml',
     lazy => 1,

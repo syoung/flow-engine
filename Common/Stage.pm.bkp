@@ -262,7 +262,7 @@ completed='0000-00-00 00:00:00'};
   $self->setFields($set);
 }
 
-method setSystemCall ( $profilehash, $runfiles ) {
+method setSystemCall ( $profilehash, $ruStnfiles ) {
   $self->logCaller();
 
   #### GET FILE ROOT
