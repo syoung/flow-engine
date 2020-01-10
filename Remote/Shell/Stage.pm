@@ -175,14 +175,14 @@ method remoteCommand ( $command, $scriptfile, $stdoutfile, $stderrfile ) {
 
 method downloadRunFiles ( $profilehash, $remote, $local ) {
   my $files = [ "stdoutfile", "stderrfile", "scriptfile", "exitfile", "lockfile", "usagefile" ];
-    $self->logDebug( "remote", $remote );
-    $self->logDebug( "local", $local );
+    # $self->logDebug( "remote", $remote );
+    # $self->logDebug( "local", $local );
   
   my $success = 1;
   foreach my $file ( @$files ) {
     # $self->logDebug( "file", $file );
     $success = 0 if not $self->copyFromRemote( $profilehash, $remote->{$file}, $local->{$file} );
-    $self->logDebug( "success", $success );
+    # $self->logDebug( "success", $success );
   }
 
   return $success;
@@ -227,11 +227,12 @@ method copyFromRemote ( $profilehash, $sourcefile, $targetfile ) {
   my $target = $targetfile;
   # $self->logDebug( "remotehost", $remotehost );    
   # $self->logDebug( "source", $source ); 
-  $self->logDebug( "target", $target );   
   
   my $result = $self->ssh()->copy( $source, $target );
   # $self->logDebug( "result", $result );
 
+$self->logDebug( "target $result ", $target );   
+  
   return $result;
 }
 
