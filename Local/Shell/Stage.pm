@@ -102,7 +102,7 @@ method run ( $dryrun) {
   $| = 1;
   
   #### PAUSE FOR RESULT FILE TO BE WRITTEN 
-  sleep($self->runsleep());
+  sleep( $self->runsleep() );
   $self->logDebug("Finished wait for command to complete");
 
   my $exitcode = $self->getExitCode( $runfiles->{exitfile} );
