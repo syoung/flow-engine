@@ -51,44 +51,45 @@ use Engine::Envar;
 # Booleans
 
 # Int/Nums
-has 'appnumber'        =>  ( isa => 'Str', is => 'rw');
+has 'appnumber'       =>  ( isa => 'Str', is => 'rw');
 has 'ancestor'        =>  ( isa => 'Str|Undef', is => 'rw');
-has 'successor'        =>  ( isa => 'Str|Undef', is => 'rw');
-has 'workflownumber'=>  ( isa => 'Str', is => 'rw');
-has 'start'         =>  ( isa => 'Int', is => 'rw' );
-has 'slots'         =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'successor'       =>  ( isa => 'Str|Undef', is => 'rw');
+has 'workflownumber'  =>  ( isa => 'Str', is => 'rw');
+has 'start'           =>  ( isa => 'Int', is => 'rw' );
+has 'slots'           =>  ( isa => 'Int|Undef', is => 'rw' );
 has 'maxjobs'         =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'runsleep'         =>  ( isa => 'Num|Undef', is => 'rw', default => 0.5 );
+has 'runsleep'        =>  ( isa => 'Num|Undef', is => 'rw', default => 0.5 );
 
 # String
-has 'submit'         =>  ( isa => 'Str|Undef', is => 'rw' );
-has 'workflowpid'    =>    ( isa => 'Str|Undef', is => 'rw' );
+has 'submit'          =>  ( isa => 'Str|Undef', is => 'rw' );
+has 'workflowpid'     =>    ( isa => 'Str|Undef', is => 'rw' );
 has 'stagepid'        =>    ( isa => 'Str|Undef', is => 'rw' );
-has 'stagejobid'    =>    ( isa => 'Str|Undef', is => 'rw' );
-has 'username'      =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'workflowname'      =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'projectname'       =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'appname'           =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'apptype'           =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'outputdir'        =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'scriptfile'    =>  ( isa => 'Str', is => 'rw', required => 1 );
-has 'installdir'       =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'version'       =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'stagejobid'      =>    ( isa => 'Str|Undef', is => 'rw' );
+has 'fields'          => ( isa => 'ArrayRef[Str|Undef]', is => 'rw', default => sub { ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] } );
+has 'username'        =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'workflowname'    =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'projectname'     =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'appname'         =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'apptype'         =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'outputdir'       =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'scriptfile'      =>  ( isa => 'Str', is => 'rw', required => 1 );
+has 'installdir'      =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'version'         =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'scheduler'       =>  ( isa => 'Str|Undef', is => 'rw', default    =>    "local" );
 
 has 'fileroot'        =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
 has 'userhome'        =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
 has 'executor'        =>     ( isa => 'Str|Undef', is => 'rw', default => undef );
-has 'prescript'        =>     ( isa => 'Str|Undef', is => 'rw', default => undef );
+has 'prescript'       =>     ( isa => 'Str|Undef', is => 'rw', default => undef );
 has 'location'        =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
 
-has 'setuid'        =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'queue_options'    =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'requestor'        =>     ( isa => 'Str', is => 'rw', required    =>    0    );
-has 'stdoutfile'    =>  ( isa => 'Str', is => 'rw' );
-has 'stderrfile'    =>  ( isa => 'Str', is => 'rw' );
-has 'started'        =>  ( isa => 'Str', is => 'rw' );
-has 'completed'        =>  ( isa => 'Str', is => 'rw' );
+has 'setuid'          =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'queue_options'   =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'requestor'       =>     ( isa => 'Str', is => 'rw', required    =>    0    );
+has 'stdoutfile'      =>  ( isa => 'Str', is => 'rw' );
+has 'stderrfile'      =>  ( isa => 'Str', is => 'rw' );
+has 'started'         =>  ( isa => 'Str', is => 'rw' );
+has 'completed'       =>  ( isa => 'Str', is => 'rw' );
 
 # Hash/Array
 has 'fields'    => ( isa => 'ArrayRef[Str|Undef]', is => 'rw', default => sub { ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] } );
@@ -280,7 +281,7 @@ method setSystemCall {
     #### PREFIX APPLICATION PATH WITH PACKAGE INSTALLATION DIRECTORY
     my $application = $self->installdir() . "/" . $self->location();    
     $self->logDebug("$$ application", $application);
-    $application    =    $self->replaceTags( $userhome, $fileroot, $projectname, $workflowname, $application, $installdir );
+    $application    =    $self->replaceTags( $userhome, $fileroot, $projectname, $workflowname, $application, $prescript, $installdir );
 
     #### SET SYSTEM CALL
     my $systemcall = [];
@@ -293,10 +294,12 @@ method setSystemCall {
     return $systemcall;    
 }
 
-method replaceTags ( $userhome, $fileroot, $projectname, $workflowname, $string, $installdir  ) {
+method replaceTags ( $userhome, $fileroot, $projectname, $workflowname, $string, $prescript, $installdir  ) {
+    $self->logCaller( "installdir", $installdir );
 
 	my $flowhome = $ENV{'FLOW_HOME'};
-	$self->logDebug( "installdir: $installdir" );
+	$self->logDebug( "flowhome: $flowhome" );
+
     $string    =~    s/<USERHOME>/$userhome/g;
     $string    =~    s/<FILEROOT>/$fileroot/g;
     $string    =~    s/<PROJECT>/$projectname/g;
@@ -468,7 +471,7 @@ date > $lockfile
 
 $command
 
-#### REMOVE LOCKFILE
+#### PRINT EXIT CODE TO FILE
 echo \$? > $exitfile
 
 # REMOVE LOCKFILE

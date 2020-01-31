@@ -2,43 +2,43 @@ use MooseX::Declare;
 
 =head2
 
-	PACKAGE		Engine::Workflow
-	
-	PURPOSE
-	
-		THE Workflow OBJECT PERFORMS THE FOLLOWING TASKS:
-		
-			1. SAVE WORKFLOWS
-			
-			2. RUN WORKFLOWS
-			
-			3. PROVIDE WORKFLOW STATUS
+  PACKAGE    Engine::Workflow
+  
+  PURPOSE
+  
+    THE Workflow OBJECT PERFORMS THE FOLLOWING TASKS:
+    
+      1. SAVE WORKFLOWS
+      
+      2. RUN WORKFLOWS
+      
+      3. PROVIDE WORKFLOW STATUS
 
-	NOTES
+  NOTES
 
-		Workflow::executeWorkflow
-			|
-			|
-			|
-			|
-		Workflow::runStages
-				|
-				|
-				|
-				-> 	my $stage = Engine::Stage->new()
-					...
-					|
-					|
-					-> $stage->run()
-						|
-						|
-						? DEFINED 'CLUSTER' AND 'SUBMIT'
-						|				|
-						|				|
-						|				YES ->  Engine::Stage::runOnCluster() 
-						|
-						|
-						NO ->  Engine::Stage::runLocally()
+    Workflow::executeWorkflow
+      |
+      |
+      |
+      |
+    Workflow::runStages
+        |
+        |
+        |
+        ->   my $stage = Engine::Stage->new()
+          ...
+          |
+          |
+          -> $stage->run()
+            |
+            |
+            ? DEFINED 'CLUSTER' AND 'SUBMIT'
+            |        |
+            |        |
+            |        YES ->  Engine::Stage::runOnCluster() 
+            |
+            |
+            NO ->  Engine::Stage::runLocally()
 
 =cut
 
@@ -52,7 +52,7 @@ class Engine::Workflow {
 use FindBin qw($Bin);
 use Data::Dumper;
 
-##### INTERNAL MODULES	
+##### INTERNAL MODULES  
 
 # Bool
 # Int
@@ -61,7 +61,7 @@ use Data::Dumper;
 
 sub new {
     my $class = shift;
-    my $args	= shift;
+    my $args  = shift;
 
     my $modulepath =  $INC{"Engine/Workflow.pm"};
     # print "modulepath: $modulepath\n";
@@ -92,4 +92,4 @@ sub new {
     
   Engine::Workflow->meta->make_immutable(inline_constructor => 0);
 
-}	#### class
+}  #### class
