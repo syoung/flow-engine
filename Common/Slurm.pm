@@ -4,7 +4,7 @@ use Method::Signatures::Simple;
 
 =head2
 
- ƒdPACKAGE    Engine::Common::Slurm
+  PACKAGE    Engine::Common::Slurm
   
   PURPOSE
   
