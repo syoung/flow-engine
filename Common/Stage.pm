@@ -328,7 +328,7 @@ method setSystemCall ( $profilehash, $runfiles ) {
   return $systemcall;  
 }
 
-method setRunFiles ( $fileroot ) {`
+method setRunFiles ( $fileroot ) {
   my $projectname  = $self->projectname();
   my $workflowname = $self->workflowname();
   my $stagenumber  = $self->appnumber();
