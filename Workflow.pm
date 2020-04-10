@@ -14,32 +14,6 @@ use MooseX::Declare;
 			
 			3. PROVIDE WORKFLOW STATUS
 
-	NOTES
-
-		Workflow::executeWorkflow
-			|
-			|
-			|
-			|
-		Workflow::runStages
-				|
-				|
-				|
-				-> 	my $stage = Engine::Stage->new()
-					...
-					|
-					|
-					-> $stage->run()
-						|
-						|
-						? DEFINED 'CLUSTER' AND 'SUBMIT'
-						|				|
-						|				|
-						|				YES ->  Engine::Stage::runOnCluster() 
-						|
-						|
-						NO ->  Engine::Stage::runLocally()
-
 =cut
 
 use strict;
