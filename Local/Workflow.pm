@@ -253,11 +253,11 @@ method executeWorkflow ($data) {
 
     $data = {
         username                =>    $username,
-        projectname                    =>    $projectname,
-        workflowname                =>    $workflowname,
-        workflownumber    =>     $workflownumber,
-        start                        =>    $start,
-        samplehash            =>    $samplehash
+        projectname             =>    $projectname,
+        workflowname            =>    $workflowname,
+        workflownumber          =>     $workflownumber,
+        start                   =>    $start,
+        samplehash              =>    $samplehash
     };
 
     #### QUIT IF INSUFFICIENT INPUTS
