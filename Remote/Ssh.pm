@@ -39,25 +39,77 @@ has 'scp'  =>  (
   # builder  =>  "setScp"
 );
 
+has 'util'    =>  (
+  is       =>  'rw',
+  isa     =>  'Util::Main',
+  lazy    =>  1,
+  builder  =>  "setUtil"
+);
+
+method setUtil () {
+  my $util = Util::Main->new({
+    conf      =>  $self->conf(),
+    log        =>  $self->log(),
+    printlog  =>  $self->printlog()
+  });
+
+  $self->util($util);  
+}
 
 method BUILD ( $args ) {
   # $self->logDebug("args", $args); 
-  my $username = $args->{username};
-  $self->username( $username );
+
   my $profilehash = $args->{profilehash};
-  # $self->logDebug( "profilehash", $profilehash );
-  my $hostname = $profilehash->{host}->{name};
+  $self->logDebug( "profilehash", $profilehash );
+
+  my $username = $profilehash->{ virtual }->{ username };
+  my $hostname = $profilehash->{ ipaddress };
   $self->logDebug( "hostname", $hostname );
   $self->logDebug( "username", $username );
+
+  $self->addHostToHosts( $hostname );
 
   $self->_setScp( $username, $hostname );
 
   $self->_setSsh( $username, $hostname );
 }
 
+method addHostToHosts ( $hostname ):
+  $self->logDebug( "Adding master hostname to own /etc/hosts" );
+  
+  my $contents = $self->util()->getFileContents( "/etc/hosts" );
+  command = "cat /etc/hosts"  
+  log.debug("sge.CreateCell.setMasterEtcHosts     command: %s" % command)
+
+  etchosts = etchosts_template
+  
+  ip_address  = master.ip_address
+  dns_name    = master.dns_name
+
+  insert = master.private_ip_address
+  insert += "\t"
+  insert += self.getHostname(master)
+  insert += "\t"
+  insert += "localhost"
+  etchosts += insert + "\n"
+
+  log.debug("sge.CreateCell.setMasterEtcHosts    AFTER etchosts: %s", etchosts)
+
+  etchosts_file = master.ssh.remote_file("/etc/hosts")
+  print >> etchosts_file, etchosts
+  etchosts_file.close()
+  
+  # DEPRECATED:
+  #command = "/etc/init.d/networking restart"
+  command = "sh -c \"ifdown eth0 && ifup eth0\""
+  log.debug("sge.CreateCell.setMasterEtcHosts    command: %s", command)
+  result = master.ssh.execute(command)
+  log.debug("sge.CreateCell.setMasterEtcHosts    result: %s", result)
+
+
 method _setScp ( $username, $hostname ) {
   $self->logDebug("username", $username);
-  # $self->logDebug("hostname", $hostname);
+  $self->logDebug("hostname", $hostname);
   
   my $scp = Net::SCP->new( $hostname, $username );
   $self->scp( $scp );
@@ -67,22 +119,24 @@ method _setScp ( $username, $hostname ) {
 
 method _setSsh ( $username, $hostname ) {
   $self->logDebug("username", $username);
-  # $self->logDebug("hostname", $hostname);
+  $self->logDebug("hostname", $hostname);
   
   use Net::OpenSSH; 
+  $self->logDebug( "DOING Net::OpenSSH->new()" );
   my $ssh = Net::OpenSSH->new( $hostname );
 
   $ssh->error and die "Couldn't establish SSH connection: ". $ssh->error;
 
   $self->ssh( $ssh );
-  
+  $self->logDebug( "Returning ssh: ", $ssh );
+
   return $ssh;
 }
 
 method command ( $command ) {
   $self->logDebug( "command", $command );
 
-  my ($stdout, $stderr) = $self->ssh()->capture2( $command );
+  my ($stdout, $stderr) = $self->ssh()->capture2( { timeout => 1 }, $command );
   $self->ssh()->error and die "remote command failed with error: " . $self->ssh()->error;
   # my ( $stdout, $stderr, $exit ) = $self->ssh()->system( $command );
   $self->logDebug( "stdout", $stdout );

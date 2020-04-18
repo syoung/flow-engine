@@ -43,6 +43,7 @@ use Engine::Remote::Ssh;
 # Class/Object
 
 
+
 has 'ssh'  =>  (
   is     =>  'rw',
   isa    =>  'Engine::Remote::Ssh',
@@ -53,7 +54,7 @@ method BUILD ($args) {
 
   $self->profile( $args->{profile} ) if $args->{profile};
 
-  $self->setSsh();
+  # $self->setSsh();
 }
 
 method setSsh() {
@@ -86,13 +87,12 @@ method setSsh() {
 
 method run ( $dryrun ) {
 
+  $self->setSsh();
+  
   my $profilehash = $self->profilehash();
   $self->logDebug("dryrun", $dryrun);
   $self->logDebug( "profilehash", $profilehash );
   
-  #### REGISTER PROCESS IDS SO WE CAN MONITOR THEIR PROGRESS
-  $self->registerRunInfo();
-
   #### SET RUN FILES
   my $username = $self->username();
   my $localfileroot = $self->util()->getFileroot( $username );  
@@ -101,6 +101,9 @@ method run ( $dryrun ) {
   $self->logDebug( "remotefileroot", $remotefileroot );
   my $remote = $self->setRunFiles( $remotefileroot );
   my $local  = $self->setRunFiles( $localfileroot );
+
+  #### REGISTER PROCESS IDS SO WE CAN MONITOR THEIR PROGRESS
+  $self->registerRunInfo( $local->{ stdoutfile }, $local->{ stderrfile } );
 
   #### SET SYSTEM CALL TO POPULATE RUN SCRIPT
   my $systemcall = $self->setSystemCall( $profilehash, $remote );
