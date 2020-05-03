@@ -58,54 +58,43 @@ method setUtil () {
 
 method BUILD ( $args ) {
   # $self->logDebug("args", $args); 
-
-  my $profilehash = $args->{profilehash};
-  $self->logDebug( "profilehash", $profilehash );
-
-  my $username = $profilehash->{ virtual }->{ username };
-  my $hostname = $profilehash->{ ipaddress };
-  $self->logDebug( "hostname", $hostname );
-  $self->logDebug( "username", $username );
-
-  $self->addHostToHosts( $hostname );
-
-  $self->_setScp( $username, $hostname );
-
-  $self->_setSsh( $username, $hostname );
 }
 
-method addHostToHosts ( $hostname ):
-  $self->logDebug( "Adding master hostname to own /etc/hosts" );
+method setUp ( $profilehash ) {
+  $self->logDebug( "profilehash", $profilehash, 1 );
+
+  my $instancedata = $profilehash->{ instance };
+  my $instancename = $instancedata->{ name };
+  my $instanceid   = $instancedata->{ id };
+  my $ipaddress    = $instancedata->{ ipaddress };
+  $self->logDebug( "instanceid", $instanceid );
+  $self->logDebug( "instancename", $instancename );
+  $self->logDebug( "ipaddress", $ipaddress );
+
+  $self->addHostToHosts( $instancename, $instanceid, $ipaddress );
+
+  my $username = $profilehash->{ virtual }->{ username };
+  $self->logDebug( "username", $username );
+
+  $self->_setScp( $username, $ipaddress );
+
+  $self->_setSsh( $username, $ipaddress );
+}
+
+method addHostToHosts ( $instancename, $instanceid, $ipaddress ) {
+
+  $self->logDebug( "Adding instance to own /etc/hosts" );
   
   my $contents = $self->util()->getFileContents( "/etc/hosts" );
-  command = "cat /etc/hosts"  
-  log.debug("sge.CreateCell.setMasterEtcHosts     command: %s" % command)
-
-  etchosts = etchosts_template
   
-  ip_address  = master.ip_address
-  dns_name    = master.dns_name
+  if ( not $contents =~ /$ipaddress/ ) {
+    $contents .= "$ipaddress\t$instancename\t$instanceid\n";
+  }
 
-  insert = master.private_ip_address
-  insert += "\t"
-  insert += self.getHostname(master)
-  insert += "\t"
-  insert += "localhost"
-  etchosts += insert + "\n"
+  my $filename = "/etc/hosts";
+  $self->util()->printToFile( $filename, $contents );
 
-  log.debug("sge.CreateCell.setMasterEtcHosts    AFTER etchosts: %s", etchosts)
-
-  etchosts_file = master.ssh.remote_file("/etc/hosts")
-  print >> etchosts_file, etchosts
-  etchosts_file.close()
-  
-  # DEPRECATED:
-  #command = "/etc/init.d/networking restart"
-  command = "sh -c \"ifdown eth0 && ifup eth0\""
-  log.debug("sge.CreateCell.setMasterEtcHosts    command: %s", command)
-  result = master.ssh.execute(command)
-  log.debug("sge.CreateCell.setMasterEtcHosts    result: %s", result)
-
+}
 
 method _setScp ( $username, $hostname ) {
   $self->logDebug("username", $username);
@@ -113,7 +102,8 @@ method _setScp ( $username, $hostname ) {
   
   my $scp = Net::SCP->new( $hostname, $username );
   $self->scp( $scp );
-  
+  $self->logDebug( "RETURNING scp", $scp );
+
   return $scp;
 }
 
@@ -123,20 +113,35 @@ method _setSsh ( $username, $hostname ) {
   
   use Net::OpenSSH; 
   $self->logDebug( "DOING Net::OpenSSH->new()" );
-  my $ssh = Net::OpenSSH->new( $hostname );
+  my $ssh = Net::OpenSSH->new( 
+    "$username\@$hostname",
+    master_opts => [
+      -o => "StrictHostKeyChecking=no"
+    ]
+  );
 
   $ssh->error and die "Couldn't establish SSH connection: ". $ssh->error;
 
   $self->ssh( $ssh );
-  $self->logDebug( "Returning ssh: ", $ssh );
+
+  # #### ADD TO SUDOERS
+  # my $command = "sudo echo '$username  ALL=(ALL:ALL) ALL' >> /etc/sudoers";
+  # $self->logDebug( "command", $command );
+  # my ( $stdout, $stderr ) = $self->command( $command );
+  # $self->logDebug( "stdout", $stdout );
+  # $self->logDebug( "stderr", $stderr );
+
+
+  # $self->logDebug( "RETURNING ssh: ", $ssh );
 
   return $ssh;
 }
 
 method command ( $command ) {
   $self->logDebug( "command", $command );
+  $self->logDebug( "self->ssh()", $self->ssh() );
 
-  my ($stdout, $stderr) = $self->ssh()->capture2( { timeout => 1 }, $command );
+  my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 1 }, $command );
   $self->ssh()->error and die "remote command failed with error: " . $self->ssh()->error;
   # my ( $stdout, $stderr, $exit ) = $self->ssh()->system( $command );
   $self->logDebug( "stdout", $stdout );
@@ -162,11 +167,11 @@ method makeDir ( $directory ) {
 }
 
 method copy ( $source, $destination ) {
-  # $self->logDebug( "source", $source );
-  # $self->logDebug( "destination", $destination );
+  $self->logDebug( "source", $source );
+  $self->logDebug( "destination", $destination );
 
-  my $result = Net::SCP::scp($source, $destination);
-  # $self->logDebug( "result", $result );
+  my $result = $self->scp()->scp($source, $destination);
+  $self->logDebug( "result", $result );
 
   return $result;
 }

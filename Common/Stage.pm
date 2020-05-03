@@ -446,6 +446,7 @@ method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, 
   $string  =~  s/<FILEROOT>/$fileroot/g;
   $string  =~  s/<PROJECT>/$projectname/g;
   $string  =~  s/<WORKFLOW>/$workflowname/g;
+  $string  =~  s/<WORKFLOWDIR>/$fileroot\/$projectname\/$workflowname/g;
   $string  =~  s/<INSTALLDIR>/$installdir/g;
   $string  =~  s/<FLOW_HOME>/$flowhome/g;
 

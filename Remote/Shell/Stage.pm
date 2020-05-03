@@ -1,5 +1,6 @@
 use MooseX::Declare;
 
+
 =head2
 
   PACKAGE    Engine::Remote::Shell::Stage
@@ -43,7 +44,6 @@ use Engine::Remote::Ssh;
 # Class/Object
 
 
-
 has 'ssh'  =>  (
   is     =>  'rw',
   isa    =>  'Engine::Remote::Ssh',
@@ -54,24 +54,22 @@ method BUILD ($args) {
 
   $self->profile( $args->{profile} ) if $args->{profile};
 
-  # $self->setSsh();
 }
 
-method setSsh() {
+method setSsh( $profilehash ) {
   my $username = $self->username();
   $self->logDebug( "username", $username );
 
   my $ssh  = Engine::Remote::Ssh->new({
     conf          =>  $self->conf(),
     log           =>  $self->log(),
-    printlog      =>  $self->printlog(),
-    profilehash   =>  $self->profilehash(),
-    username      =>  $self->username()
+    printlog      =>  $self->printlog()
   });
+
+  $ssh->setUp( $profilehash );
 
   $self->ssh( $ssh );  
 }
-
 
 # SUBROUTINE    run
 #
@@ -87,18 +85,23 @@ method setSsh() {
 
 method run ( $dryrun ) {
 
-  $self->setSsh();
-  
   my $profilehash = $self->profilehash();
   $self->logDebug("dryrun", $dryrun);
   $self->logDebug( "profilehash", $profilehash );
+
+  #### SET SSH
+  $self->setSsh( $profilehash );
   
   #### SET RUN FILES
-  my $username = $self->username();
-  my $localfileroot = $self->util()->getFileroot( $username );  
-  my $remotefileroot = $self->getRemoteFileroot( $profilehash, $username );
+  my $localusername = $self->username();
+  my $remoteusername = $profilehash->{ virtual }->{ username };
+  my $localfileroot = $self->util()->getFileroot( $localusername );  
+  my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
   $self->logDebug( "localfileroot", $localfileroot );
   $self->logDebug( "remotefileroot", $remotefileroot );
+  my $remote = $self->setRunFiles( $remotefileroot );
+  my $local  = $self->setRunFiles( $localfileroot );
+
   my $remote = $self->setRunFiles( $remotefileroot );
   my $local  = $self->setRunFiles( $localfileroot );
 
@@ -194,22 +197,22 @@ method downloadRunFiles ( $profilehash, $remote, $local ) {
 method getRemoteFileroot ( $profilehash, $username ) {
     $self->logNote("username", $username);
 
-    my $homedir = $self->getProfileValue( "host:homedir", $profilehash );
-    my $basedir = $self->conf()->getKey("core:BASEDIR");
+    my $homedir = $self->getProfileValue( "host:homedir", $profilehash ) || "/home";
+    my $basedir = $self->conf()->getKey("core:DIR");
     my $fileroot = "$homedir/$username/$basedir";
     
     return $fileroot;    
 }
 
 method copyToRemote ( $profilehash, $sourcefile, $targetfile ) {
-  # $self->logDebug( "profilehash", $profilehash );
+  $self->logDebug( "profilehash", $profilehash );
   # $self->logDebug( "sourcefile", $sourcefile );
   # $self->logDebug( "targetfile", $targetfile );
 
-  my $remotehost = $profilehash->{host}->{name};
+  my $remoteusername = $profilehash->{ virtual }->{ username };
+  my $ipaddress = $profilehash->{ instance }->{ ipaddress };
   my $source = $sourcefile;
-  my $target = "$remotehost:$targetfile";
-  # $self->logDebug( "remotehost", $remotehost );    
+  my $target = "$remoteusername\@$ipaddress:$targetfile";
   # $self->logDebug( "source", $source ); 
   $self->logDebug( "target", $target );   
   
@@ -225,7 +228,7 @@ method copyFromRemote ( $profilehash, $sourcefile, $targetfile ) {
   # $self->logDebug( "sourcefile", $sourcefile );
   # $self->logDebug( "targetfile", $targetfile );
 
-  my $remotehost = $profilehash->{host}->{name};
+  my $remotehost = $profilehash->{ virtual }->{ username };
   my $source = "$remotehost:$sourcefile";
   my $target = $targetfile;
   # $self->logDebug( "remotehost", $remotehost );    
