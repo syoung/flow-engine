@@ -1,8 +1,8 @@
 use MooseX::Declare;
 use Method::Signatures::Simple;
 
-class Test::Engine::Common::Ssh with (Util::Logger,
-	Util::Main) extends Engine::Common::Ssh {
+class Test::Engine::Remote::Ssh with (Util::Logger,
+	Util::Main) extends Engine::Remote::Ssh {
 
 use Data::Dumper;
 use Test::More;

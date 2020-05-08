@@ -2,20 +2,20 @@ use MooseX::Declare;
 
 =head2
 
-	***** NOT UPDATED *****
+  ***** NOT UPDATED *****
 
-	PACKAGE		Engine::Cluster::Monitor::LSF
-	
+  PACKAGE    Engine::Cluster::Monitor::LSF
+  
     VERSION:        0.01
 
     PURPOSE
   
         MONITOR JOBS RUN ON A LSF (LOAD SHARING FACILITY) SYSTEM
 
-	HISTORY
-	
-		0.01	Basic version
-		
+  HISTORY
+  
+    0.01  Basic version
+    
 
 use LSF::Job;
 
@@ -46,9 +46,9 @@ use FindBin qw($Bin);
 use lib "$Bin/..";
 
 class Engine::Cluster::Monitor::LSF with (Util::Logger, 
-	Engine::Common::SGE, 
-	Engine::Common::Ssh, 
-	Util::Timer) {
+  Engine::Common::SGE, 
+  Engine::Remote::Ssh, 
+  Util::Timer) {
 
 #### INTERNAL MODULES
 use DBaseFactory;
@@ -65,21 +65,21 @@ use LSF::Job RaiseError => 0, PrintError => 1, PrintOutput => 0;
 
 
 #### Int
-has 'sleep'		=> ( isa => 'Int', is => 'rw', default => 5 );
+has 'sleep'    => ( isa => 'Int', is => 'rw', default => 5 );
 
 #### Str
-has 'queue'		=> ( isa => 'Str', is => 'rw', default => "normal" );
-has 'checkjob'		=> ( isa => 'Str', is => 'rw', default => "/usr/local/bin/checkjob" );
-has 'errorregex'		=> ( isa => 'Str', is => 'rw', default => "^ERROR" );
-has 'jobidregex'		=> ( isa => 'Str', is => 'rw', default => "^\\s*(\\d+)" );
+has 'queue'    => ( isa => 'Str', is => 'rw', default => "normal" );
+has 'checkjob'    => ( isa => 'Str', is => 'rw', default => "/usr/local/bin/checkjob" );
+has 'errorregex'    => ( isa => 'Str', is => 'rw', default => "^ERROR" );
+has 'jobidregex'    => ( isa => 'Str', is => 'rw', default => "^\\s*(\\d+)" );
 
 =head2
 
-	SUBROUTINE		summary
-	
-	PURPOSE
-	
-		RETURN A SUMMARY OF ALL JOBS SO FAR SUBMITTED BY THE USER
+  SUBROUTINE    summary
+  
+  PURPOSE
+  
+    RETURN A SUMMARY OF ALL JOBS SO FAR SUBMITTED BY THE USER
 
 [syoung@m1 ~]$ bacct
 Line <114534>: Bad event format: JOB_FINISH 1267037765 offset[534:1]: lsfRusage 19 fields: utime stime maxrss ixrss ismrss idrss isrss minflt majflt nswap inblock oublock ioch msgsnd msgrcv nsignals nvcsw nivcsw exutime
@@ -109,240 +109,240 @@ SUMMARY:      ( time unit: second )
 
 =cut
 
-sub _summary ( $args ) {
-	$self->logDebug("Agua::Monitor::LSF::_summary(command)");
+method _summary ( $args ) {
+  $self->logDebug("Agua::Monitor::LSF::_summary(command)");
 
-	my $command = "bacct";
-	$self->logDebug("command", $command);
-	my $summary = `bacct`;
+  my $command = "bacct";
+  $self->logDebug("command", $command);
+  my $summary = `bacct`;
 
-	$self->{_summary} = $summary;
-	
-	return $summary;
+  $self->{_summary} = $summary;
+  
+  return $summary;
 }
 
 =head2
 
-	SUBROUTINE		summary
-	
-	PURPOSE
-	
-		RETURN A SUMMARY OF THE USER'S CLUSTER USAGE TO DATE
+  SUBROUTINE    summary
+  
+  PURPOSE
+  
+    RETURN A SUMMARY OF THE USER'S CLUSTER USAGE TO DATE
 
 =cut
 
-sub get_summary ( $refresh ) {
+method get_summary ( $refresh ) {
 
-	return $self->{_summary} if defined $self->{_summary} and not $refresh;
+  return $self->{_summary} if defined $self->{_summary} and not $refresh;
 
-	return $self->_summary();	
+  return $self->_summary();  
 }
 
 
 
 =head2
 
-	SUBROUTINE		get_jobid
-	
-	PURPOSE
-	
-		RETURN THE JOB ID OF A SUBMITTED JOB
-		
+  SUBROUTINE    get_jobid
+  
+  PURPOSE
+  
+    RETURN THE JOB ID OF A SUBMITTED JOB
+    
 =cut
 
-sub get_jobid {
+method get_jobid {
 
-	$self->logDebug("Agua::Monitor::LSF::get_jobid(command)");
-	$self->logDebug("self: ");
-	my $job = $self->get_job();
-	my $job_id = $job->id();
-	$self->logDebug("job_id", $job_id);
-	
-	return $job_id;	
+  $self->logDebug("Agua::Monitor::LSF::get_jobid(command)");
+  $self->logDebug("self: ");
+  my $job = $self->get_job();
+  my $job_id = $job->id();
+  $self->logDebug("job_id", $job_id);
+  
+  return $job_id;  
 }
 
 =head2
 
-	SUBROUTINE		submitJob
-	
-	PURPOSE
-	
-		SUBMIT A JOB TO AN LSF CLUSTER AND RETURN ITS JOB ID
-		
+  SUBROUTINE    submitJob
+  
+  PURPOSE
+  
+    SUBMIT A JOB TO AN LSF CLUSTER AND RETURN ITS JOB ID
+    
 =cut
 
-sub submitJob ( $args ) {
-	$self->logDebug("Agua::Monitor::LSF::submitJob(command)");
-	$self->logDebug("args", $args);
+method submitJob ( $args ) {
+  $self->logDebug("Agua::Monitor::LSF::submitJob(command)");
+  $self->logDebug("args", $args);
 
-	my $queue = $args->{queue};
-	my $scriptfile = $args->{scriptfile};
-	$self->logDebug("Scriptfile not defined. Returning null") and return if not defined $args->{scriptfile};
-	$args->{stdoutfile} = "/dev/null" if not defined $args->{stdoutfile};
-	$args->{stderrfile} = "/dev/null" if not defined $args->{stderrfile};
+  my $queue = $args->{queue};
+  my $scriptfile = $args->{scriptfile};
+  $self->logDebug("Scriptfile not defined. Returning null") and return if not defined $args->{scriptfile};
+  $args->{stdoutfile} = "/dev/null" if not defined $args->{stdoutfile};
+  $args->{stderrfile} = "/dev/null" if not defined $args->{stderrfile};
 
-	my $job = $self->submit($args);
-	
-	my $job_id = $job->id();
-	$self->set_jobid($job_id);
-	$self->logDebug("job_id", $job_id);
-	
-	return $job_id;	
+  my $job = $self->submit($args);
+  
+  my $job_id = $job->id();
+  $self->set_jobid($job_id);
+  $self->logDebug("job_id", $job_id);
+  
+  return $job_id;  
 }
 
 
 =head2
 
-	SUBROUTINE		submit
-	
-	PURPOSE
-	
-		SUBMIT A JOB TO AN LSF CLUSTER EITHER AS A SINGLE JOB,
-		
-		OR AS AN ARRAY JOB IF THE batch ARGUMENT IS NON-EMPTY
+  SUBROUTINE    submit
+  
+  PURPOSE
+  
+    SUBMIT A JOB TO AN LSF CLUSTER EITHER AS A SINGLE JOB,
+    
+    OR AS AN ARRAY JOB IF THE batch ARGUMENT IS NON-EMPTY
 
 =cut
 
-sub submit ( $args ) {
-	$self->logDebug("Agua::Monitor::LSF::submit(command)");
-	$self->logDebug("args", $args);
+method submit ( $args ) {
+  $self->logDebug("Agua::Monitor::LSF::submit(command)");
+  $self->logDebug("args", $args);
 
-	my $queue = $args->{queue};
-	my $batch = $args->{batch};
-	my $tasks = $args->{tasks};
+  my $queue = $args->{queue};
+  my $batch = $args->{batch};
+  my $tasks = $args->{tasks};
 
-	my $scriptfile = $args->{scriptfile};
-	my $stdoutfile = $args->{stdoutfile};
-	my $stderrfile = $args->{stderrfile};
-	$stdoutfile = "/dev/null" if not defined $stdoutfile;
-	$stderrfile = "/dev/null" if not defined $stderrfile;
+  my $scriptfile = $args->{scriptfile};
+  my $stdoutfile = $args->{stdoutfile};
+  my $stderrfile = $args->{stderrfile};
+  $stdoutfile = "/dev/null" if not defined $stdoutfile;
+  $stderrfile = "/dev/null" if not defined $stderrfile;
 
-	#### GET CPUS
-	my $cpus = $self->get_cpus();
-	$cpus = 1 if not defined $cpus;
-	$self->logDebug("cpus", $cpus);
+  #### GET CPUS
+  my $cpus = $self->get_cpus();
+  $cpus = 1 if not defined $cpus;
+  $self->logDebug("cpus", $cpus);
 
-	#### CREATE JOB
-	my $job;
-	my $tries = 20;
-	my $sleep = $self->get_sleep();
-	$sleep = 5 if not defined $sleep;
-	$self->logDebug("sleep", $sleep);
-	$self->logDebug("tries", $tries);
-	
-	#### SUBMIT NON-BATCH JOB
-	if ( not defined $batch or not $batch )
-	{
-		$self->logDebug("submitting ordinary (NON-BATCH) job: ");
+  #### CREATE JOB
+  my $job;
+  my $tries = 20;
+  my $sleep = $self->get_sleep();
+  $sleep = 5 if not defined $sleep;
+  $self->logDebug("sleep", $sleep);
+  $self->logDebug("tries", $tries);
+  
+  #### SUBMIT NON-BATCH JOB
+  if ( not defined $batch or not $batch )
+  {
+    $self->logDebug("submitting ordinary (NON-BATCH) job: ");
 
-		#### REMOVE FILES IF EXIST
-		`rm -fr $stdoutfile` if -f $stdoutfile;
-		`rm -fr $stderrfile` if -f $stderrfile;	
+    #### REMOVE FILES IF EXIST
+    `rm -fr $stdoutfile` if -f $stdoutfile;
+    `rm -fr $stderrfile` if -f $stderrfile;  
 
-		#### TRY REPEATEDLY UNTIL SUCCESSFUL
-		my $counter = 0;
-		while ( not defined $job and $counter < $tries )
-		{
-			$counter++;
+    #### TRY REPEATEDLY UNTIL SUCCESSFUL
+    my $counter = 0;
+    while ( not defined $job and $counter < $tries )
+    {
+      $counter++;
 
-			$self->logDebug("command: bsub -n $cpus -q $queue -o $stdoutfile $scriptfile");
-			
-			$job = LSF::Job->submit(
-				-n => $cpus,
-				-q => $queue,
-				-o => $stdoutfile,
-				$scriptfile
-			);
-		}
-	}
-	
-	#### SUBMIT BATCH JOB
-	else
-	{
-		$self->logDebug("submitting BATCH job: ");
-		$self->logDebug("queue", $queue);
-		$self->logDebug("stdoutfile", $stdoutfile);
-		$self->logDebug("batch", $batch);
-		$self->logDebug("scriptfile", $scriptfile);
-		
-		#### REMOVE STDOUT FILES IF EXIST
-		for my $task ( 1..$tasks )
-		{
-			my $file = $stdoutfile;
-			$file =~ s/\$LSB_JOBINDEX/$task/g;
-			`rm -fr $file` if -f $file;
-		}
-		
-		#### CREATE STDOUT DIRECTORY FOR EACH TASK
-		for my $task ( 1..$tasks )
-		{
-			my ($outdir) = $stdoutfile =~ /^(.+?)\/[^\/]+$/;
-			$outdir =~ s/\$LSB_JOBINDEX/$task/g;
-			File::Path::mkpath($outdir) if not -d $outdir;
-			$self->logError("Can't create outdir: $outdir") and exit if not -d $outdir;
-		}
+      $self->logDebug("command: bsub -n $cpus -q $queue -o $stdoutfile $scriptfile");
+      
+      $job = LSF::Job->submit(
+        -n => $cpus,
+        -q => $queue,
+        -o => $stdoutfile,
+        $scriptfile
+      );
+    }
+  }
+  
+  #### SUBMIT BATCH JOB
+  else
+  {
+    $self->logDebug("submitting BATCH job: ");
+    $self->logDebug("queue", $queue);
+    $self->logDebug("stdoutfile", $stdoutfile);
+    $self->logDebug("batch", $batch);
+    $self->logDebug("scriptfile", $scriptfile);
+    
+    #### REMOVE STDOUT FILES IF EXIST
+    for my $task ( 1..$tasks )
+    {
+      my $file = $stdoutfile;
+      $file =~ s/\$LSB_JOBINDEX/$task/g;
+      `rm -fr $file` if -f $file;
+    }
+    
+    #### CREATE STDOUT DIRECTORY FOR EACH TASK
+    for my $task ( 1..$tasks )
+    {
+      my ($outdir) = $stdoutfile =~ /^(.+?)\/[^\/]+$/;
+      $outdir =~ s/\$LSB_JOBINDEX/$task/g;
+      File::Path::mkpath($outdir) if not -d $outdir;
+      $self->logError("Can't create outdir: $outdir") and exit if not -d $outdir;
+    }
 
-		#### TRY REPEATEDLY UNTIL SUCCESSFUL
-		my $counter = 0;
-		while ( not defined $job and $counter < $tries )
-		{
-			$counter++;
+    #### TRY REPEATEDLY UNTIL SUCCESSFUL
+    my $counter = 0;
+    while ( not defined $job and $counter < $tries )
+    {
+      $counter++;
 
-			$stdoutfile =~ s/\$LSB_JOBINDEX/%I/g;
-			$self->logDebug("command: bsub -n $cpus -q $queue -o $stdoutfile -J $batch $scriptfile");
+      $stdoutfile =~ s/\$LSB_JOBINDEX/%I/g;
+      $self->logDebug("command: bsub -n $cpus -q $queue -o $stdoutfile -J $batch $scriptfile");
 
-			#### CONVERT '$LSB_INDEX' TO '%I' IN STDOUTFILE FOR SUBMIT COMMAND
-			#$stdoutfile =~ s/\$PBS_TASKNUM/$task/g;
+      #### CONVERT '$LSB_INDEX' TO '%I' IN STDOUTFILE FOR SUBMIT COMMAND
+      #$stdoutfile =~ s/\$PBS_TASKNUM/$task/g;
 
-			$job = LSF::Job->submit(
-				-n => $cpus,
-				-q => $queue,
-				-o => $stdoutfile,
-				-J => $batch,
-				$scriptfile
-			);
-			
-			sleep($sleep);
-		}
-	}
-	
-	#### SET self->JOB
-	$self->{_job} = $job;
+      $job = LSF::Job->submit(
+        -n => $cpus,
+        -q => $queue,
+        -o => $stdoutfile,
+        -J => $batch,
+        $scriptfile
+      );
+      
+      sleep($sleep);
+    }
+  }
+  
+  #### SET self->JOB
+  $self->{_job} = $job;
 
-	$self->logDebug("job", $job);
+  $self->logDebug("job", $job);
 
-	return $job;	
+  return $job;  
 }
 
 =head2
 
-	SUBROUTINE		jobIds
-	
-	PURPOSE
-	
-		RETURN THE LIST OF ALL JOB IDS CURRENTLY AVAILABLE THROUGH
-		
-		THE bhist COMMAND
-		
+  SUBROUTINE    jobIds
+  
+  PURPOSE
+  
+    RETURN THE LIST OF ALL JOB IDS CURRENTLY AVAILABLE THROUGH
+    
+    THE bhist COMMAND
+    
 =cut
 
-sub jobIds {
-	$self->logDebug("Agua::Monitor::LSF::jobIds()");	;
+method jobIds {
+  $self->logDebug("Agua::Monitor::LSF::jobIds()");  ;
 
-	#### GET LIST OF JOBS IN QSTAT
-	my $lines = $self->jobLines();
+  #### GET LIST OF JOBS IN QSTAT
+  my $lines = $self->jobLines();
 
-	#### PARSE OUT IDS FROM LIST
-	my $job_ids = [];
-	foreach my $line ( @$lines )
-	{
-		use re 'eval';# EVALUATE AS REGEX
-		$line =~ /$self->jobidregex()/;
-		push @$job_ids, $1 if defined $1 and $1;
-		no re 'eval';# STOP EVALUATING AS REGEX
-	}
+  #### PARSE OUT IDS FROM LIST
+  my $job_ids = [];
+  foreach my $line ( @$lines )
+  {
+    use re 'eval';# EVALUATE AS REGEX
+    $line =~ /$self->jobidregex()/;
+    push @$job_ids, $1 if defined $1 and $1;
+    no re 'eval';# STOP EVALUATING AS REGEX
+  }
 
-	return $job_ids;
+  return $job_ids;
 }
 
 =head2
@@ -353,67 +353,67 @@ sub jobIds {
     
         RETURN THE STATUS OF A PARTICULAR JOB IDENTIFIED BY JOB ID
         
-	NOTES
-	
-		CALLED IN Sampler.pm BY fastaInfos AND printFiles SUBROUTINES
-	
+  NOTES
+  
+    CALLED IN Sampler.pm BY fastaInfos AND printFiles SUBROUTINES
+  
 =cut
 
-sub jobStatus ( $job_id ) {
-	$self->logDebug("Agua::Monitor::LSF::jobStatus(pids, qstat, sleep)");
-	$self->logDebug("job_id", $job_id)  if defined $job_id;
-	
-	#### GET LIST OF JOBS IN QSTAT
-	my $lines = $self->jobLines();
-	#### METHOD 1
-	my $status;
+method jobStatus ( $job_id ) {
+  $self->logDebug("Agua::Monitor::LSF::jobStatus(pids, qstat, sleep)");
+  $self->logDebug("job_id", $job_id)  if defined $job_id;
+  
+  #### GET LIST OF JOBS IN QSTAT
+  my $lines = $self->jobLines();
+  #### METHOD 1
+  my $status;
     foreach my $line ( @$lines )
     {
-		$self->logDebug("CHECKING job_id $job_id against line", $line);
-		my $job_id_match = $line =~ /^$job_id/;
-		if ( $job_id_match )
-		{
-			
-			$self->logDebug("MATCHED line", $line);
-	
-			$status = $self->lineStatus($line);
-			$self->logDebug("status", $status);
-			
-			last;
+    $self->logDebug("CHECKING job_id $job_id against line", $line);
+    my $job_id_match = $line =~ /^$job_id/;
+    if ( $job_id_match )
+    {
+      
+      $self->logDebug("MATCHED line", $line);
+  
+      $status = $self->lineStatus($line);
+      $self->logDebug("status", $status);
+      
+      last;
         }
     }
 
-	#### METHOD 2
-	#my $jobcheck = $self->checkJob($job_id);	
-	$self->logDebug("Returning status", $status)  if defined $status;
+  #### METHOD 2
+  #my $jobcheck = $self->checkJob($job_id);  
+  $self->logDebug("Returning status", $status)  if defined $status;
     return $status;
 }
 
 
 =head2
 
-	SUBROUTINE		lineStatus
-	
-	PURPOSE
-	
-		RETURN THE STATUS ENTRY FOR A bjobs LINE
+  SUBROUTINE    lineStatus
+  
+  PURPOSE
+  
+    RETURN THE STATUS ENTRY FOR A bjobs LINE
 
-		JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
-		5031    syoung  RUN   priority   m1          n0143       test1      Mar  5 14:19
+    JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+    5031    syoung  RUN   priority   m1          n0143       test1      Mar  5 14:19
 
 =cut
 
-sub lineStatus ( $line ) {
-	$self->logDebug("Agua::Monitor::LSF::lineStatus()");
-	$self->logDebug("line", $line);
-	
-	my ($status) = $line =~ /^\s*\S+\s+\S+\s+(\S+)/;
-	$self->logDebug("status", $status);
-	
-	return "running" if $status eq "RUN";
-	return "queued" if $status eq "PEND";
-	return "completed" if $status eq "EXIT";
-	return "error" if $status eq "ERROR";
+method lineStatus ( $line ) {
+  $self->logDebug("Agua::Monitor::LSF::lineStatus()");
+  $self->logDebug("line", $line);
+  
+  my ($status) = $line =~ /^\s*\S+\s+\S+\s+(\S+)/;
+  $self->logDebug("status", $status);
+  
+  return "running" if $status eq "RUN";
+  return "queued" if $status eq "PEND";
+  return "completed" if $status eq "EXIT";
+  return "error" if $status eq "ERROR";
 }
 
 
@@ -424,72 +424,72 @@ sub lineStatus ( $line ) {
 
     PURPOSE
     
-		HASH JOBID AGAINST STATUS
+    HASH JOBID AGAINST STATUS
 
 =cut
 
-sub statusHash {
-	$self->logDebug("Agua::Monitor::LSF::statusHash()");
+method statusHash {
+  $self->logDebug("Agua::Monitor::LSF::statusHash()");
 
-	my $joblines = $self->jobLines();
-	$self->logDebug("joblines: @$joblines");
+  my $joblines = $self->jobLines();
+  $self->logDebug("joblines: @$joblines");
 
-	my $statusHash;
-	foreach my $line ( @$joblines )
-	{
-		if ( $line =~ /^(\d+)/ )
-		{
-			$self->logDebug("DOING line", $line);
-			$statusHash->{$1} = $self->lineStatus($line);
-		}
-	}
-	
-	$self->logDebug("statusHash", $statusHash);
-	
-	return $statusHash;
+  my $statusHash;
+  foreach my $line ( @$joblines )
+  {
+    if ( $line =~ /^(\d+)/ )
+    {
+      $self->logDebug("DOING line", $line);
+      $statusHash->{$1} = $self->lineStatus($line);
+    }
+  }
+  
+  $self->logDebug("statusHash", $statusHash);
+  
+  return $statusHash;
 }
 
 =head2
 
-	SUBROUTINE		jobLines
-	
-	PURPOSE
-		
-		RETURN THE LINES FROM A bjobs CALL
+  SUBROUTINE    jobLines
+  
+  PURPOSE
+    
+    RETURN THE LINES FROM A bjobs CALL
 
-		bjobs
-		JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
-		5031    syoung  RUN   priority   m1          n0143       test1      Mar  5 14:19
+    bjobs
+    JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+    5031    syoung  RUN   priority   m1          n0143       test1      Mar  5 14:19
 
-		NB: bhist DOESN'T PROVIDE STATUS DIRECTLY - HAVE TO INFER FROM 'PEND' AND 'RUN'
+    NB: bhist DOESN'T PROVIDE STATUS DIRECTLY - HAVE TO INFER FROM 'PEND' AND 'RUN'
 
-		bhist 5031
-		Summary of time in seconds spent in various states:
-		JOBID   USER    JOB_NAME  PEND    PSUSP   RUN     USUSP   SSUSP   UNKWN   TOTAL
-		5031    syoung  test1     2       0       8       0       0       0       10  
-	
+    bhist 5031
+    Summary of time in seconds spent in various states:
+    JOBID   USER    JOB_NAME  PEND    PSUSP   RUN     USUSP   SSUSP   UNKWN   TOTAL
+    5031    syoung  test1     2       0       8       0       0       0       10  
+  
 =cut
 
-sub jobLines ( $args ) {
-	$self->logDebug("Agua::Monitor::LSF::jobLines()");
+method jobLines ( $args ) {
+  $self->logDebug("Agua::Monitor::LSF::jobLines()");
 
-	$args = { '-a' => 1 } if not defined $args; 
-	my $job = $self->get_job();
-	$self->logDebug("No current job (i.e., self->{_job}. Returning null") and return if not defined $job;
+  $args = { '-a' => 1 } if not defined $args; 
+  my $job = $self->get_job();
+  $self->logDebug("No current job (i.e., self->{_job}. Returning null") and return if not defined $job;
 
-	#### GET bjobs INFO
-	my $command = "bjobs -a";
-	my $result = `$command`;
-	#### GET LINES	
-	my @lines = split "\n", $result;
-	my $jobs_list = [];
-	foreach my $line ( @lines )
-	{
-		use re 'eval';# EVALUATE AS REGEX
-		push @$jobs_list, $line if $line =~ /$self->jobidregex()/;
-		no re 'eval';# EVALUATE AS REGEX
-	}
-	return $jobs_list;
+  #### GET bjobs INFO
+  my $command = "bjobs -a";
+  my $result = `$command`;
+  #### GET LINES  
+  my @lines = split "\n", $result;
+  my $jobs_list = [];
+  foreach my $line ( @lines )
+  {
+    use re 'eval';# EVALUATE AS REGEX
+    push @$jobs_list, $line if $line =~ /$self->jobidregex()/;
+    no re 'eval';# EVALUATE AS REGEX
+  }
+  return $jobs_list;
 }
 
 =head2
@@ -500,37 +500,37 @@ sub jobLines ( $args ) {
     
         KEEP TRACK OF PIDS OF CURRENTLY RUNNING JOBS
         
-	CALLER
-	
-		fastaInfos, printFiles
-	
+  CALLER
+  
+    fastaInfos, printFiles
+  
 =cut
 
-sub remainingJobs ( $job_ids ) {
-	$self->logDebug("Agua::Monitor::LSF::remainingJobs(job_ids)");
-	$self->logDebug("job_ids: @$job_ids");
+method remainingJobs ( $job_ids ) {
+  $self->logDebug("Agua::Monitor::LSF::remainingJobs(job_ids)");
+  $self->logDebug("job_ids: @$job_ids");
 
     my $qstat   =   $self->get_qstat();
     
-	#### GET LIST OF JOBS IN QSTAT
-	my $lines = $self->jobLines();
-	
-	for ( my $i = 0; $i < @$job_ids; $i++ )
+  #### GET LIST OF JOBS IN QSTAT
+  my $lines = $self->jobLines();
+  
+  for ( my $i = 0; $i < @$job_ids; $i++ )
     {
-		my $job_id = $$job_ids[$i];
-		$self->logDebug("Checking match job_id", $job_id);
+    my $job_id = $$job_ids[$i];
+    $self->logDebug("Checking match job_id", $job_id);
 
-		my $jobstatus = $self->jobStatus($job_id);
-		$self->logDebug("jobstatus", $jobstatus);
-		
-		if ( not defined $jobstatus or not $jobstatus or $jobstatus eq "completed" )
-		{
-			$self->logDebug("JOB completed", $job_id);
-			splice @$job_ids, $i, 1;
-		}
+    my $jobstatus = $self->jobStatus($job_id);
+    $self->logDebug("jobstatus", $jobstatus);
+    
+    if ( not defined $jobstatus or not $jobstatus or $jobstatus eq "completed" )
+    {
+      $self->logDebug("JOB completed", $job_id);
+      splice @$job_ids, $i, 1;
+    }
     }
 
-	$self->logDebug("remaining job_ids (", scalar(@$job_ids), " left): @$job_ids");
+  $self->logDebug("remaining job_ids (", scalar(@$job_ids), " left): @$job_ids");
 
     return $job_ids;
 }
@@ -545,32 +545,32 @@ sub remainingJobs ( $job_ids ) {
     
         RETURN THE STATUS OF A PARTICULAR JOB IDENTIFIED BY JOB ID
         
-	NOTES
-	
-		CALLED IN Sampler.pm BY fastaInfos AND printFiles SUBROUTINES
-	
+  NOTES
+  
+    CALLED IN Sampler.pm BY fastaInfos AND printFiles SUBROUTINES
+  
 =cut
 
-sub jobLineStatus ( $job_id, $job_lines ) {
-	$self->logDebug("Agua::Monitor::LSF::jobLineStatus(pids, qstat, sleep)");
-	$self->logDebug("job_id", $job_id)  if defined $job_id;
-	$self->logDebug("pids: @$job_lines");
-	
-	#### GET LIST OF JOBS IN QSTAT
-	my $lines = $self->jobLines();
+method jobLineStatus ( $job_id, $job_lines ) {
+  $self->logDebug("Agua::Monitor::LSF::jobLineStatus(pids, qstat, sleep)");
+  $self->logDebug("job_id", $job_id)  if defined $job_id;
+  $self->logDebug("pids: @$job_lines");
+  
+  #### GET LIST OF JOBS IN QSTAT
+  my $lines = $self->jobLines();
 
-	my $status;
+  my $status;
     foreach my $line ( @$lines )
     {
-		my $job_id_match = $line =~ /^$job_id\./;
-		if ( $job_id_match )
-		{
-			$status = $self->lineStatus($line);
-			last;
+    my $job_id_match = $line =~ /^$job_id\./;
+    if ( $job_id_match )
+    {
+      $status = $self->lineStatus($line);
+      last;
         }
     }
 
-	$self->logDebug("Returning status", $status)  if defined $status;
+  $self->logDebug("Returning status", $status)  if defined $status;
     return $status;
 }
 
@@ -580,36 +580,36 @@ sub jobLineStatus ( $job_id, $job_lines ) {
 
 =head2
 
-	SUBROUTINE		checkJob
-	
-	PURPOSE
-	
-		RETURN A HASH OF THE JOB'S STATUS
+  SUBROUTINE    checkJob
+  
+  PURPOSE
+  
+    RETURN A HASH OF THE JOB'S STATUS
 
 =cut
 
-sub checkJob ( $job_id ) {
+method checkJob ( $job_id ) {
 
-	$self->logDebug("Agua::Monitor::LSF::checkJob(job_id)");
-	$self->logDebug("job_id", $job_id);
-	my $job;
-	if ( defined $job_id )
-	{
-		$job = LSF::Job->new($job_id);
-	}
-	else
-	{
-		$job = $self->get_job();
-	}
-	$self->logError("job not defined. Exiting.") and exit if not defined $job;
+  $self->logDebug("Agua::Monitor::LSF::checkJob(job_id)");
+  $self->logDebug("job_id", $job_id);
+  my $job;
+  if ( defined $job_id )
+  {
+    $job = LSF::Job->new($job_id);
+  }
+  else
+  {
+    $job = $self->get_job();
+  }
+  $self->logError("job not defined. Exiting.") and exit if not defined $job;
 
-	return $job->history->exit_status;
+  return $job->history->exit_status;
 }
 
 
 ################################################################################
 ################################################################################
-###########################	       old monitor       ###########################
+###########################         old monitor       ###########################
 ################################################################################
 ################################################################################
 
@@ -620,11 +620,11 @@ sub checkJob ( $job_id ) {
 
     PURPOSE
     
-		REPORT THE STATUS OF A JOB
+    REPORT THE STATUS OF A JOB
 
 =cut
 
-sub status ( $args ) {
+method status ( $args ) {
     my $type = $args->{type};
     my $value = $args->{value};
     my $limit = $args->{limit};
@@ -637,9 +637,9 @@ sub status ( $args ) {
     my $dbfile = $self->dbfile() if $self->get_db() and $self->get_db eq "SQLite";
     $self->logDebug("dbfile", $dbfile) if $self->get_db eq "SQLite";
 
-	#### GET DB OBJECT
-	my $db = $self->get_db();
-	
+  #### GET DB OBJECT
+  my $db = $self->get_db();
+  
     #### FIRST, GET TOTAL ENTRIES IN TABLE
     my $query;
     $query = qq{SELECT COUNT(*) FROM monitor};
@@ -691,26 +691,26 @@ sub status ( $args ) {
 
 =head2
 
-	SUBROUTINE		get_db
-	
-	PURPOSE
+  SUBROUTINE    get_db
+  
+  PURPOSE
 
-		RETURN THE _db OR CREATE ONE
-		
+    RETURN THE _db OR CREATE ONE
+    
 =cut
 
-sub get_db {
-	
-	my $conf = $self->get_conf();	
-	
-	#### CREATE DB OBJECT USING DBASE FACTORY
-my $db = 	DBaseFactory->new( $conf->getKey("database:DBTYPE"),
-	{
-		'DBFILE'	=>	$conf->getKey("database:DBFILE"),
-		'DATABASE'	=>	$conf->getKey("database:DATABASE"),
-		'USER'      =>  $conf->getKey("database:USER"),
-		'PASSWORD'  =>  $conf->getKey("database:PASSWORD")
-	}
+method get_db {
+  
+  my $conf = $self->get_conf();  
+  
+  #### CREATE DB OBJECT USING DBASE FACTORY
+my $db =   DBaseFactory->new( $conf->getKey("database:DBTYPE"),
+  {
+    'DBFILE'  =>  $conf->getKey("database:DBFILE"),
+    'DATABASE'  =>  $conf->getKey("database:DATABASE"),
+    'USER'      =>  $conf->getKey("database:USER"),
+    'PASSWORD'  =>  $conf->getKey("database:PASSWORD")
+  }
 ) or die "Can't create database object to create database: $conf->getKey("database:DATABASE"). $!\n";
 
     #my $db = DBaseFactory->new( "SQLite", { 'DBFILE' => $dbfile } ) or die "Can't open DB file '$dbfile': $!\n";
@@ -718,7 +718,7 @@ my $db = 	DBaseFactory->new( $conf->getKey("database:DBTYPE"),
     #{
     #    die "Database object not defined. Tried to access sqlite DB file: $dbfile\n";
     #}    
-	
+  
 }
     
 
@@ -731,23 +731,23 @@ my $db = 	DBaseFactory->new( $conf->getKey("database:DBTYPE"),
     
     PURPOSE
     
-		UPDATE THE STATUS OF ALL running JOBS IN THE DATABASE
+    UPDATE THE STATUS OF ALL running JOBS IN THE DATABASE
 
 =cut
 
-sub update {
+method update {
 
   #### GET DBOBJECT
-  my $db 	= $self->{_db};
+  my $db   = $self->{_db};
 
   #### GET QSTAT
-  my $qstat 		= $self->{_qstat};
+  my $qstat     = $self->{_qstat};
 
 #### DEPRECATED: REMOVE IN NEXT VERSION. SEPARATED DB FROM MONITOR.
 #### 
   ##### CONNECT TO SQLITE DATABASE
 #### 
-#my $dbfile      =	$self->dbfile();
+#my $dbfile      =  $self->dbfile();
   #my $dbh = DBI->connect( "dbi:SQLite:$dbfile" ) || die "Cannot connect: $DBI::errstr";
   #
   ##### CREATE DBase::SQLite OBJECT
@@ -817,13 +817,13 @@ sub update {
 
   PURPOSE
   
-	CREATE THE DATABASE AND THE monitor TABLE
+  CREATE THE DATABASE AND THE monitor TABLE
 
 =cut
 
-sub create_db {
+method create_db {
 
-	my $dbfile    =	$self->{_dbfile};
+  my $dbfile    =  $self->{_dbfile};
 
     #### CREATE DB OBJECT USING DBASE FACTORY
     my $db = DBaseFactory->new( "SQLite", { 'DBFILE' => $dbfile } ) or die "Can't open DB file '$dbfile': $!\n";
@@ -852,13 +852,13 @@ sub create_db {
     SUBROUTINE      dbfile    
     PURPOSE
     
-		RETURN THE DBFILE LOCATION AND CREATE DBFILE IF NOT PRESENT
+    RETURN THE DBFILE LOCATION AND CREATE DBFILE IF NOT PRESENT
 
 =cut
 
-sub dbfile {
+method dbfile {
 
-	my $dbfile    =	$self->{_dbfile};
+  my $dbfile    =  $self->{_dbfile};
 
   #### SET DEFAULT DBFILE
   if ( not defined $dbfile or not $dbfile )
@@ -887,26 +887,26 @@ sub dbfile {
 
     PURPOSE
     
-		RETURN THE sqlfile LOCATION
+    RETURN THE sqlfile LOCATION
 
 =cut
 
-sub sqlfile {
+method sqlfile {
 
-	my $sqlfile    =	$self->{_sqlfile};
+  my $sqlfile    =  $self->{_sqlfile};
 
     my $sql = qq{CREATE TABLE IF NOT EXISTS monitor
 (
-	processid	VARCHAR(20) NOT NULL,
-	command     TEXT,
-	outputdir   TEXT,
-	datetime	DATETIME NOT NULL,
-	status		TEXT,
-	PRIMARY KEY (processid, datetime)
+  processid  VARCHAR(20) NOT NULL,
+  command     TEXT,
+  outputdir   TEXT,
+  datetime  DATETIME NOT NULL,
+  status    TEXT,
+  PRIMARY KEY (processid, datetime)
 )};
 
-	my $fileroot = $self->{_conf}->{FILEROOT};
-	
+  my $fileroot = $self->{_conf}->{FILEROOT};
+  
   if ( not defined $sqlfile or not $sqlfile )
   {
       my $username = `whoami`;
@@ -930,32 +930,32 @@ sub sqlfile {
 
 =head2
 
-	SUBROUTINE 		tempdir
-	
-	PURPOSE
-	
-		GET A WORLD-WRITABLE TEMP DIR
-		
+  SUBROUTINE     tempdir
+  
+  PURPOSE
+  
+    GET A WORLD-WRITABLE TEMP DIR
+    
 =cut
 
 
-sub tmpdir {
-	
-	my $tmpdir = $self->{_tmpdir};
-	return $tmpdir if defined $tmpdir;
-	
+method tmpdir {
+  
+  my $tmpdir = $self->{_tmpdir};
+  return $tmpdir if defined $tmpdir;
+  
     #### PRINT SQLFILE TO /tmp AND LOAD
-	my $tmpdirs = [ "/tmp", "/var/tmp", "/usr/tmp"];
+  my $tmpdirs = [ "/tmp", "/var/tmp", "/usr/tmp"];
     foreach my $dir ( @$tmpdirs )
-	{
-		if ( -d $dir and -w $dir )
-		{
-			$self->{_tmpdir} = $dir;
-			return $dir;
-		}
-	}
-	
-	return undef;
+  {
+    if ( -d $dir and -w $dir )
+    {
+      $self->{_tmpdir} = $dir;
+      return $dir;
+    }
+  }
+  
+  return undef;
 }
 
 
@@ -965,17 +965,17 @@ sub tmpdir {
     
     PURPOSE
     
-		REGISTER A CLUSTER JOB IN THE SQLITE DATABASE
+    REGISTER A CLUSTER JOB IN THE SQLITE DATABASE
         
 =cut
 
-sub register {
-	my $pid          =	$self->{_pid};
-	my $command     =	$self->{_command};
-	my $outputdir   =	$self->{_outputdir};
+method register {
+  my $pid          =  $self->{_pid};
+  my $command     =  $self->{_command};
+  my $outputdir   =  $self->{_outputdir};
 
     #### GET DB FILE
-	my $dbfile      =	$self->dbfile();
+  my $dbfile      =  $self->dbfile();
 
   #### CONNECT TO SQLITE DATABASE
   my $dbh = DBI->connect( "dbi:SQLite:$dbfile" ) || die "Cannot connect: $DBI::errstr";
@@ -983,9 +983,9 @@ sub register {
   #### CREATE DBase::SQLite OBJECT
   my $db = DBase::SQLite->new(    {   'DBH' => $dbh   }   );
 
-	#### INSERT ENTRY INTO TABLE
-	my $now = "DATETIME('NOW')";
-	$now = "NOW()" if $self->get_conf()->getKey("database:DBTYPE") =~ /^MYSQL$/i;
+  #### INSERT ENTRY INTO TABLE
+  my $now = "DATETIME('NOW')";
+  $now = "NOW()" if $self->get_conf()->getKey("database:DBTYPE") =~ /^MYSQL$/i;
   my $query = qq{INSERT INTO monitor VALUES ( '$pid', '$command', '$outputdir', $now), 'running' )};
   $self->logDebug("$query");
   my $success = $self->table()->db()->do($query);
@@ -1002,35 +1002,35 @@ sub register {
     
     PURPOSE
     
-		MONITOR A LSF JOB AND RETURN 1 WHEN COMPLETED:
+    MONITOR A LSF JOB AND RETURN 1 WHEN COMPLETED:
 
-		Job id                    Name             User            Time Use S Queue
-		------------------------- ---------------- --------------- -------- - -----
-		14887.kronos              test.sh          syoung          00:00:00 R psmall  
+    Job id                    Name             User            Time Use S Queue
+    ------------------------- ---------------- --------------- -------- - -----
+    14887.kronos              test.sh          syoung          00:00:00 R psmall  
 
 =cut
 
 
-sub monitor {
+method monitor {
 
-	my $pid    =	$self->{_pid};
+  my $pid    =  $self->{_pid};
   my $qstat = $self->{_qstat};
-	my $sleep = $self->{_sleep};
-	$self->logDebug("Monitor.monitor()");
-	$self->logDebug("id", $pid);
-	$self->logDebug("qstat", $qstat);
-	$self->logDebug("sleep", $sleep);
+  my $sleep = $self->{_sleep};
+  $self->logDebug("Monitor.monitor()");
+  $self->logDebug("id", $pid);
+  $self->logDebug("qstat", $qstat);
+  $self->logDebug("sleep", $sleep);
 
     #### REGISTER THIS JOB
     $self->register();
-	#Job id                    Name             User            Time Use S Queue
-	#------------------------- ---------------- --------------- -------- - -----
-	#14887.kronos              test.sh          syoung          00:00:00 R psmall  
-	
-	my $completed = 0;
+  #Job id                    Name             User            Time Use S Queue
+  #------------------------- ---------------- --------------- -------- - -----
+  #14887.kronos              test.sh          syoung          00:00:00 R psmall  
+  
+  my $completed = 0;
     my $status;
-	while ( ! $completed )
-	{
+  while ( ! $completed )
+  {
     my $qstat_result = '';
     my $qstat_command = "$qstat $pid 2>&1 |";
     $self->logDebug("$qstat_command");
@@ -1077,7 +1077,7 @@ sub monitor {
     {
         sleep($sleep);
     }   
-	}
+  }
 
   return $status;
 }

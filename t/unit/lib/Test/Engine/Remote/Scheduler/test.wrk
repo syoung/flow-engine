@@ -1,0 +1,9 @@
+---
+apps:
+  -
+    appname: test
+    installdir: <FLOW_HOME>/t/
+    parameters:
+      -
+        paramname: source
+        value: 60

@@ -262,7 +262,7 @@ completed='0000-00-00 00:00:00'};
   $self->setFields($set);
 }
 
-method setSystemCall ( $profilehash, $runfiles ) {
+method setSystemCall ( $profilehash, $ruStnfiles ) {
   $self->logCaller();
 
   #### GET FILE ROOT
@@ -277,6 +277,8 @@ method setSystemCall ( $profilehash, $runfiles ) {
   my $perl5lib = $ENV{"PERL5LIB"};
   $self->logDebug( "installdir: $installdir" );
   $self->logDebug( "perl5lib: $perl5lib" );
+
+
   $self->logDebug("$$ fileroot", $fileroot);
 
   my $stageparameters =  $self->stageparameters();
@@ -444,7 +446,6 @@ method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, 
   $string  =~  s/<FILEROOT>/$fileroot/g;
   $string  =~  s/<PROJECT>/$projectname/g;
   $string  =~  s/<WORKFLOW>/$workflowname/g;
-  $string  =~  s/<WORKFLOWDIR>/$fileroot\/$projectname\/$workflowname/g;
   $string  =~  s/<INSTALLDIR>/$installdir/g;
   $string  =~  s/<FLOW_HOME>/$flowhome/g;
 
@@ -618,7 +619,7 @@ method setArguments ( $stageparameters ) {
       next;
     }
     
-    if ( $value =~ /^\s*$/ and $discretion ne "required" and not defined $argument  ) {
+    if ( $value =~ /^\s*$/ and $discretion ne "required" ) {
       $self->logNote("Skipping empty argument", $argument);
       next;
     }

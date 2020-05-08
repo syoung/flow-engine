@@ -2,7 +2,7 @@ use MooseX::Declare;
 
 =head2
 
-    PACKAGE        Engine::Workflow
+    PACKAGE        Engine::Local::Shell::Workflow
     
     PURPOSE
     
@@ -14,39 +14,13 @@ use MooseX::Declare;
             
             3. PROVIDE WORKFLOW STATUS
 
-    NOTES
-
-        Workflow::executeWorkflow
-            |
-            |
-            |
-            |
-        Workflow::runStages
-                |
-                |
-                |
-                ->     my $stage = Engine::Stage->new()
-                    ...
-                    |
-                    |
-                    -> $stage->run()
-                        |
-                        |
-                        ? DEFINED 'CLUSTER' AND 'SUBMIT'
-                        |                |
-                        |                |
-                        |                YES ->  Engine::Stage::runOnCluster() 
-                        |
-                        |
-                        NO ->  Engine::Stage::runLocally()
-
 =cut
 
 use strict;
 use warnings;
 use Carp;
 
-class Engine::Local::Workflow with (Engine::Common::Workflow, 
+class Engine::Local::Shell::Workflow with (Engine::Common::Workflow, 
     Util::Logger, 
     Util::Timer) {
 
@@ -59,70 +33,71 @@ use TryCatch;
 ##### INTERNAL MODULES    
 use DBase::Factory;
 use Conf::Yaml;
-use Engine::Local::Stage;
+use Engine::Local::Shell::Stage;
 use Engine::Cloud::Instance;     #
 use Engine::Cluster::Monitor::SGE; #
-use Engine::Envar;
+# use Engine::Envar;
 use Table::Main;
 use Exchange::Main;
 
 #### BOOLEAN
-has 'force'    => ( isa => 'Bool', is => 'rw', default     =>     0     );
-has 'dryrun'        =>     ( isa => 'Bool', is => 'rw'    );
+has 'force'          =>  ( isa => 'Bool', is => 'rw', default => 0 );
+has 'dryrun'         =>  ( isa => 'Bool', is => 'rw' );
 
 # Integers
-has 'workflowpid'    =>     ( isa => 'Int|Undef', is => 'rw', required => 0 );
-has 'workflownumber'=>  ( isa => 'Int|Undef', is => 'rw' );
-has 'start'         =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'stop'             =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'submit'          =>  ( isa => 'Int|Undef', is => 'rw' );
-has 'validated'        =>     ( isa => 'Int|Undef', is => 'rw', default => 0 );
-has 'qmasterport'    =>     ( isa => 'Int', is  => 'rw' );
-has 'execdport'        =>     ( isa => 'Int', is  => 'rw' );
-has 'maxjobs'            =>     ( isa => 'Int', is => 'rw'    );
+has 'workflowpid'    =>  ( isa => 'Int|Undef', is => 'rw', required => 0 );
+has 'workflownumber' =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'start'          =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'stop'           =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'submit'         =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'validated'      =>  ( isa => 'Int|Undef', is => 'rw', default => 0 );
+has 'qmasterport'    =>  ( isa => 'Int', is  => 'rw' );
+has 'execdport'      =>  ( isa => 'Int', is  => 'rw' );
+has 'maxjobs'        =>  ( isa => 'Int', is => 'rw'  );
 
 # String
+has 'profile'        =>  ( isa => 'Str|Undef', is => 'rw' );
 has 'sample'         =>  ( isa => 'Str|Undef', is => 'rw' );
-has 'scheduler'         =>     ( isa => 'Str|Undef', is => 'rw', default    =>    "local");
-has 'random'            =>     ( isa => 'Str|Undef', is => 'rw', required    =>     0);
-has 'configfile'    =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'installdir'    =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'fileroot'        =>     ( isa => 'Str|Undef', is => 'rw', default => '' );
-has 'whoami'          =>  ( isa => 'Str', is => 'rw', lazy    =>    1, builder => "setWhoami" );
-has 'username'      =>  ( isa => 'Str', is => 'rw' );
-has 'password'      =>  ( isa => 'Str', is => 'rw' );
-has 'workflowname'=>  ( isa => 'Str', is => 'rw' );
-has 'projectname' =>  ( isa => 'Str', is => 'rw' );
-has 'outputdir'        =>  ( isa => 'Str', is => 'rw' );
-has 'upgradesleep'=>     ( isa => 'Int', is  => 'rw', default    =>    10    );
+has 'scheduler'      =>  ( isa => 'Str|Undef', is => 'rw', default => "local");
+has 'random'         =>  ( isa => 'Str|Undef', is => 'rw', required => 0);
+has 'configfile'     =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'installdir'     =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'fileroot'       =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
+has 'whoami'         =>  ( isa => 'Str', is => 'rw', lazy    =>    1, builder => "setWhoami" );
+has 'username'       =>  ( isa => 'Str', is => 'rw' );
+has 'password'       =>  ( isa => 'Str', is => 'rw' );
+has 'workflowname'   =>  ( isa => 'Str', is => 'rw' );
+has 'projectname'    =>  ( isa => 'Str', is => 'rw' );
+has 'outputdir'      =>  ( isa => 'Str', is => 'rw' );
+has 'upgradesleep'   =>  ( isa => 'Int', is  => 'rw', default => 10    );
 
 # Object
-has 'data'                =>     ( isa => 'HashRef|Undef', is => 'rw', default => undef );
-has 'samplehash'    =>     ( isa => 'HashRef|Undef', is => 'rw', required    =>    0    );
-has 'ssh'                    =>     ( isa => 'Util::Ssh', is => 'rw', required    =>    0    );
-has 'opsinfo'            =>     ( isa => 'Ops::MainInfo', is => 'rw', required    =>    0    );    
-has 'jsonparser'    =>     ( isa => 'JSON', is => 'rw', lazy => 1, builder => "setJsonParser" );
-has 'json'                =>     ( isa => 'HashRef', is => 'rw', required => 0 );
-has 'stages'            =>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
-has 'stageobjects'=>     ( isa => 'ArrayRef', is => 'rw', required => 0 );
-has 'starcluster'    =>     ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
-has 'head'                =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
-has 'master'            =>     ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
-has 'monitor'            =>     ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
-has 'worker'            =>     ( isa => 'Maybe', is => 'rw', required => 0 );
-has 'virtual'            =>     ( isa => 'Any', is => 'rw', lazy    =>    1, builder    =>    "setVirtual" );
+has 'data'           =>  ( isa => 'HashRef|Undef', is => 'rw', default => undef );
+has 'samplehash'     =>  ( isa => 'HashRef|Undef', is => 'rw', required => 0    );
+has 'ssh'            =>  ( isa => 'Util::Ssh', is => 'rw', required => 0    );
+has 'opsinfo'        =>  ( isa => 'Ops::MainInfo', is => 'rw', required => 0    );    
+has 'jsonparser'     =>  ( isa => 'JSON', is => 'rw', lazy => 1, builder => "setJsonParser" );
+has 'json'           =>  ( isa => 'HashRef', is => 'rw', required => 0 );
+has 'stages'         =>  ( isa => 'ArrayRef', is => 'rw', required => 0 );
+has 'stageobjects'   =>  ( isa => 'ArrayRef', is => 'rw', required => 0 );
+has 'starcluster'    =>  ( isa => 'StarCluster::Main', is => 'rw', lazy => 1, builder => "setStarCluster" );
+has 'head'           =>  ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setHead" );
+has 'master'         =>  ( isa => 'Engine::Cloud::Instance', is => 'rw', lazy => 1, builder => "setMaster" );
+has 'monitor'        =>  ( isa => 'Engine::Cluster::Monitor::SGE|Undef', is => 'rw', lazy => 1, builder => "setMonitor" );
+has 'worker'         =>  ( isa => 'Maybe', is => 'rw', required => 0 );
+has 'virtual'        =>  ( isa => 'Any', is => 'rw', lazy    =>    1, builder    =>    "setVirtual" );
 
-has 'envarsub'    => ( isa => 'Maybe', is => 'rw' );
-has 'customvars'=>    ( isa => 'HashRef', is => 'rw' );
+has 'envarsub'       =>  ( isa => 'Maybe', is => 'rw' );
+has 'customvars'     =>  ( isa => 'HashRef', is => 'rw' );
 
-has 'db'            =>     ( 
+has 'db'             =>  ( 
     is => 'rw', 
     isa => 'Any', 
     # lazy    =>    1,    
     # builder    =>    "setDbObject" 
 );
 
-has 'conf'            =>     ( 
+has 'conf'           =>  ( 
     is => 'rw',
     isa => 'Conf::Yaml',
     lazy => 1,
@@ -223,17 +198,17 @@ method executeProject {
 method executeWorkflow ($data) {
     $self->logNote("data", $data);
     my $username             =    $data->{username};
-    my $cluster             =    $data->{cluster};
-    my $projectname     =    $data->{projectname};
-    my $workflowname     =    $data->{workflowname};
-    my $workflownumber=    $data->{workflownumber};
-    my $samplehash         =    $data->{samplehash};
-    my $submit                 = $data->{submit};
-    my $start                    =    $data->{start};
-    my $stop                    =    $data->{stop};
-    my $dryrun                =    $data->{dryrun};
+    my $cluster              =    $data->{cluster};
+    my $projectname          =    $data->{projectname};
+    my $workflowname         =    $data->{workflowname};
+    my $workflownumber       =    $data->{workflownumber};
+    my $samplehash           =    $data->{samplehash};
+    my $submit               =    $data->{submit};
+    my $start                =    $data->{start};
+    my $stop                 =    $data->{stop};
+    my $dryrun               =    $data->{dryrun};
     my $scheduler            =    $self->conf()->getKey("core:SCHEDULER");
-    my $force         =    $self->force() || $data->{force};
+    my $force                =    $self->force() || $data->{force};
     $self->logDebug("force", $force);
     $self->force($force);
     
@@ -255,7 +230,7 @@ method executeWorkflow ($data) {
         username                =>    $username,
         projectname             =>    $projectname,
         workflowname            =>    $workflowname,
-        workflownumber          =>     $workflownumber,
+        workflownumber          =>    $workflownumber,
         start                   =>    $start,
         samplehash              =>    $samplehash
     };
@@ -470,7 +445,7 @@ method runStages ($stages, $dryrun) {
     # $self->logDebug("exchange", $exchange);
     
     #### SELF IS SIPHON WORKER
-    my $worker    =    0;
+    my $worker     =    0;
     $worker        =    1 if defined $self->worker();
     $self->logDebug("worker", $worker);
     
@@ -671,7 +646,7 @@ method setStages ($username, $cluster, $data, $projectname, $workflowname, $work
             $stage->{stderrfile}     =     "$stderrdir/$stagenumber-$stagename-$id.stderr";
         }
 
-        my $stageobject = Engine::Local::Stage->new($stage);
+        my $stageobject = Engine::Local::Shell::Stage->new($stage);
 
         #### NEAT PRINT STAGE
         #$stageobject->toString();

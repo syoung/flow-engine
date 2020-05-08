@@ -22,7 +22,7 @@ use lib "$Bin/../..";
 
 class Engine::Cluster::Monitor::PBS with (Util::Logger, 
 	Engine::Common::SGE, 
-	Engine::Common::Ssh, 
+	Engine::Remote::Ssh, 
 	Util::Timer) {
 
 #### EXTERNAL MODULES
@@ -41,7 +41,7 @@ has 'jobidregex'		=> ( isa => 'Str', is => 'rw', default => "^\\s*(\\d+)" );
 
 class Engine::Cluster::Monitor::SGE with (Util::Logger, 
 	Engine::Common::SGE, 
-	Engine::Common::Ssh, 
+	Engine::Remote::Ssh, 
 	Util::Timer) {
 
 

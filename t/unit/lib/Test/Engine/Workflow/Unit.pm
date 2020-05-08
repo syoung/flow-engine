@@ -101,7 +101,7 @@ method testLoadStarCluster {
         cluster     =>  $cluster
     });
     
-	my $userdir	=	$self->conf()->getKey("core:USERDIR");
+	my $homedir	=	$self->conf()->getKey("core:HOMEDIR");
 	
     #### SET CLUSTER OBJECT
     my $clusterobject = {

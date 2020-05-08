@@ -2,17 +2,17 @@ use MooseX::Declare;
 
 =head2
 
-	PACKAGE		Engine::Workflow
-	
-	PURPOSE
-	
-		THE Workflow OBJECT PERFORMS THE FOLLOWING TASKS:
-		
-			1. SAVE WORKFLOWS
-			
-			2. RUN WORKFLOWS
-			
-			3. PROVIDE WORKFLOW STATUS
+  PACKAGE    Engine::Workflow
+  
+  PURPOSE
+  
+    THE Workflow OBJECT PERFORMS THE FOLLOWING TASKS:
+    
+      1. SAVE WORKFLOWS
+      
+      2. RUN WORKFLOWS
+      
+      3. PROVIDE WORKFLOW STATUS
 
 =cut
 
@@ -26,7 +26,7 @@ class Engine::Workflow {
 use FindBin qw($Bin);
 use Data::Dumper;
 
-##### INTERNAL MODULES	
+##### INTERNAL MODULES  
 
 # Bool
 # Int
@@ -34,36 +34,34 @@ use Data::Dumper;
 # Object
 
 sub new {
-    my $class = shift;
-    my $args	= shift;
+  my $class     = shift;
+  my $hosttype  = shift;
+  my $runtype   = shift;
+  my $args      = shift;
 
-    my $modulepath =  $INC{"Engine/Workflow.pm"};
-    # print "modulepath: $modulepath\n";
-    my ($path) = $modulepath =~ /^(.+?)\/[^\/]+.pm$/; 
+  my $modulepath =  $INC{"Engine/Workflow.pm"};
+  my ($path) = $modulepath =~ /^(.+?)\/[^\/]+.pm$/; 
 
-    my $scheduler = $args->{conf}->getKey("core:SCHEDULER");
-    my $runtype = "Local";
-    my $submit = $args->{submit};
-    # print "submit: $submit\n" if defined $submit;
-    # print "submit: undef\n" if not defined $submit;
-    # print "scheduler: $scheduler\n";
 
-    if ( defined $scheduler 
-      and $scheduler ne ""
-      and $scheduler ne "local"  ) {
-      if ( not defined $submit or $submit ne "0" ) {
-        $runtype = "Cluster";
-      }
-    }
-    # print "**** *** *** **** Engine::Workflow    runtype: $runtype\n";
- 
-    my $location    = "$path/$runtype/Workflow.pm";
-    $class          = "Engine::" . $runtype . "::Workflow";
-    require $location;
+  $hosttype = cowCase( $hosttype );
+  $runtype = cowCase( $runtype );
+  print "Engine::Workflow    runtype: $runtype\n";
+  print "Engine::Workflow    hosttype: $hosttype\n";
 
-    return $class->new( $args );
+  my $location    = "$path/$hosttype/$runtype/Workflow.pm";
+  $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
+  require $location;
+
+  return $class->new( $args );
 }
-    
-  Engine::Workflow->meta->make_immutable(inline_constructor => 0);
 
-}	#### class
+sub cowCase {
+  my $string = shift;
+
+  return uc( substr( $string, 0, 1) ) . substr( $string, 1);
+}
+
+
+Engine::Workflow->meta->make_immutable(inline_constructor => 0);
+
+}  #### class
