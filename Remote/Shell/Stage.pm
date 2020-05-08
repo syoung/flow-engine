@@ -56,6 +56,75 @@ method BUILD ($args) {
 
 }
 
+
+method setSystemCall ( $profilehash, $runfiles ) {
+  $self->logCaller();
+
+  #### GET FILE ROOT
+  my $username      =  $self->username();
+  my $userhome      =  $self->userhome();
+  my $envar         =  $self->envar();
+  my $stagenumber   =  $self->appnumber();  
+  my $basedir       = $self->conf()->getKey("core:DIR");
+
+  #### ADD PERL5LIB TO ENABLE EXTERNAL SCRIPTS TO USE OUR MODULES
+  my $installdir = $self->conf()->getKey("core:INSTALLDIR");
+  my $perl5lib = $ENV{"PERL5LIB"};
+  $self->logDebug( "installdir: $installdir" );
+  $self->logDebug( "perl5lib: $perl5lib" );
+
+  #### SET REMOTE FILEROOT
+  my $remoteusername = $profilehash->{ virtual }->{ username };
+  my $fileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
+  $self->logDebug( "fileroot", $fileroot );
+
+  my $stageparameters =  $self->stageparameters();
+  $self->logDebug( "stageparameters", $stageparameters );
+  $self->logError("stageparemeters not defined") and exit if not defined $stageparameters;
+# $self->logDebug( "DeBUG EXIT" ) and exit;
+
+  my $projectname   =  $$stageparameters[0]->{projectname};
+  my $workflowname  =  $$stageparameters[0]->{workflowname};
+
+  #### REPLACE <TAGS> IN PARAMETERS
+  foreach my $stageparameter ( @$stageparameters ) {
+    $stageparameter->{value} = $self->replaceTags( $stageparameter->{value}, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir );
+  }
+
+  #### CONVERT ARGUMENTS INTO AN ARRAY IF ITS A NON-EMPTY STRING
+  my $arguments = $self->setArguments( $stageparameters );
+  $self->logDebug("arguments", $arguments);
+
+  #### ADD USAGE COMMAND (HANDLE OSX VERSION OF time )
+  my $usage  =  $self->setUsagefile( $runfiles->{usagefile} );
+
+  #### SET EXPORTS
+  my $exports     = "export STAGENUMBER=$stagenumber;";  
+  $exports .=  "export PERL5LIB=$perl5lib; ";
+  $exports .=  " cd $fileroot/$projectname/$workflowname;";
+  $exports .= $self->getPrescript( $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir );
+  $self->logDebug("FINAL exports", $exports);
+
+  #### SET EXECUTOR 
+  my $executor = $self->executor();
+  $self->logDebug("executor", $executor);
+  
+  #### PREFIX APPLICATION PATH WITH PACKAGE INSTALLATION DIRECTORY
+  my $application = $self->installdir() . "/" . $self->location();  
+  $self->logDebug("$$ application", $application);
+  $application  =  $self->replaceTags( $application, $userhome, $fileroot, $projectname, $workflowname, $installdir );
+
+  #### SET SYSTEM CALL
+  my $systemcall = [];
+  push @$systemcall, $exports;
+  push @$systemcall, $usage;
+  push @$systemcall, $executor if defined $executor and $executor ne "";
+  push @$systemcall, $application;
+  @$systemcall = (@$systemcall, @$arguments);
+  
+  return $systemcall;  
+}
+
 method setSsh( $profilehash ) {
   my $username = $self->username();
   $self->logDebug( "username", $username );
@@ -99,9 +168,6 @@ method run ( $dryrun ) {
   my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
   $self->logDebug( "localfileroot", $localfileroot );
   $self->logDebug( "remotefileroot", $remotefileroot );
-  my $remote = $self->setRunFiles( $remotefileroot );
-  my $local  = $self->setRunFiles( $localfileroot );
-
   my $remote = $self->setRunFiles( $remotefileroot );
   my $local  = $self->setRunFiles( $localfileroot );
 
@@ -228,8 +294,9 @@ method copyFromRemote ( $profilehash, $sourcefile, $targetfile ) {
   # $self->logDebug( "sourcefile", $sourcefile );
   # $self->logDebug( "targetfile", $targetfile );
 
-  my $remotehost = $profilehash->{ virtual }->{ username };
-  my $source = "$remotehost:$sourcefile";
+  my $remoteusername = $profilehash->{ virtual }->{ username };
+  my $ipaddress = $profilehash->{ instance }->{ ipaddress };
+  my $source = "$remoteusername\@$ipaddress:$sourcefile";
   my $target = $targetfile;
   # $self->logDebug( "remotehost", $remotehost );    
   # $self->logDebug( "source", $source ); 

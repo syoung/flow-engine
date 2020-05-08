@@ -277,8 +277,6 @@ method setSystemCall ( $profilehash, $runfiles ) {
   my $perl5lib = $ENV{"PERL5LIB"};
   $self->logDebug( "installdir: $installdir" );
   $self->logDebug( "perl5lib: $perl5lib" );
-
-
   $self->logDebug("$$ fileroot", $fileroot);
 
   my $stageparameters =  $self->stageparameters();
@@ -620,7 +618,7 @@ method setArguments ( $stageparameters ) {
       next;
     }
     
-    if ( $value =~ /^\s*$/ and $discretion ne "required" ) {
+    if ( $value =~ /^\s*$/ and $discretion ne "required" and not defined $argument  ) {
       $self->logNote("Skipping empty argument", $argument);
       next;
     }

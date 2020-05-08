@@ -139,9 +139,9 @@ method _setSsh ( $username, $hostname ) {
 
 method command ( $command ) {
   $self->logDebug( "command", $command );
-  $self->logDebug( "self->ssh()", $self->ssh() );
+  # $self->logDebug( "self->ssh()", $self->ssh() );
 
-  my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 1 }, $command );
+  my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 100 }, $command );
   $self->ssh()->error and die "remote command failed with error: " . $self->ssh()->error;
   # my ( $stdout, $stderr, $exit ) = $self->ssh()->system( $command );
   $self->logDebug( "stdout", $stdout );
@@ -167,21 +167,21 @@ method makeDir ( $directory ) {
 }
 
 method copy ( $source, $destination ) {
-  $self->logDebug( "source", $source );
-  $self->logDebug( "destination", $destination );
+  # $self->logDebug( "source", $source );
+  # $self->logDebug( "destination", $destination );
 
   my $result = $self->scp()->scp($source, $destination);
-  $self->logDebug( "result", $result );
+  # $self->logDebug( "result", $result );
 
   return $result;
 }
 
 method copyFromRemote ( $source, $destination ) {
-  $self->logDebug( "source", $source );
-  $self->logDebug( "destination", $destination );
+  # $self->logDebug( "source", $source );
+  # $self->logDebug( "destination", $destination );
 
   my $result = Net::SCP::scp($source, $destination);
-  $self->logDebug( "result", $result );
+  # $self->logDebug( "result", $result );
 }
 
 #### SET SSH COMMAND IF KEYPAIRFILE, ETC. ARE DEFINED
