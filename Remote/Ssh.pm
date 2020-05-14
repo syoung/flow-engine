@@ -1,5 +1,5 @@
 use MooseX::Declare;
-use Method::Signatures::Simple;
+# use Method::Signatures::Simple;
 
 class Engine::Remote::Ssh with Util::Logger {
 
@@ -144,8 +144,8 @@ method command ( $command ) {
   my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 100 }, $command );
   $self->ssh()->error and die "remote command failed with error: " . $self->ssh()->error;
   # my ( $stdout, $stderr, $exit ) = $self->ssh()->system( $command );
-  $self->logDebug( "stdout", $stdout );
-  $self->logDebug( "stderr", $stderr );
+  # $self->logDebug( "stdout", $stdout );
+  # $self->logDebug( "stderr", $stderr );
   # $self->logDebug( "exit", $exit );
 
   return ( $stdout, $stderr );

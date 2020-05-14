@@ -478,7 +478,7 @@ method containsRedirection ($arguments) {
 }
 
 
-# SUBROUTINE    setStageJob
+# SUBROUTINE    printScriptFile
 #
 # PURPOSE
 #

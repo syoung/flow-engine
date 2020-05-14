@@ -121,7 +121,8 @@ method setSystemCall ( $profilehash, $runfiles ) {
   push @$systemcall, $executor if defined $executor and $executor ne "";
   push @$systemcall, $application;
   @$systemcall = (@$systemcall, @$arguments);
-  
+  $self->logDebug( "systemcall", $systemcall );
+
   return $systemcall;  
 }
 
@@ -180,6 +181,9 @@ method run ( $dryrun ) {
   #### ADD STDOUT AND STDERR FILES TO SYSTEM CALL
   $systemcall = $self->addOutputFiles( $systemcall, $remote->{stdoutfile}, $remote->{stderrfile} );
 
+  #### GET PID
+  push @$systemcall, ' & echo $!';  
+
   #### CREATE REMOTE SCRIPTDIR
   my $projectname  = $self->projectname();
   my $workflowname = $self->workflowname();
@@ -210,19 +214,107 @@ method run ( $dryrun ) {
 
   #### EXECUTE
   ( $stdout, $stderr ) = $self->ssh()->command( $remote->{scriptfile} );
+  my $processid = $stdout;
+  $self->logDebug( "PROCESS ID", $processid );
+  $self->logDebug( "stderr", $stderr );
   
+  #### POLL FOR COMPLETION
+  my $exitcode = $self->pollForCompletion( $processid );
+
   #### RUN FILES
   $self->downloadRunFiles( $profilehash, $remote, $local );
 
-  #### EXIT CODE
-  my $exitcode = $self->getExitCode( $local->{exitfile} );
-  $self->logDebug( "exitcode", $exitcode );
+  # #### EXIT CODE
+  # my $exitcode = $self->getExitCode( $local->{exitfile} );
+  # $self->logDebug( "exitcode", $exitcode );
  
   #### IF exitcode IS ZERO, SET STATUS TO 'completed'
   #### OTHERWISE, SET STATUS TO 'error' 
   $self->setFinalStatus( $exitcode );
   
   return $exitcode;
+}
+
+method pollForCompletion ( $processid ) {
+  $self->logDebug( "processid", $processid );
+
+  my $limit = 999;
+  my $sleep = 5;
+  $self->logDebug( "sleep", $sleep );
+  my $counter = 0;
+  while ( $counter < $limit ) {
+    $counter++;
+    my ( $stdout, $stderr ) = $self->ssh()->command( "ps aux | grep $processid" );
+    $self->logDebug( "ORIGINAL stdout", $stdout );
+    # my $regex = ".+?grep $processid";
+    my $regex = "^.+ps aux \\| grep.+\$";
+    $self->logDebug( "REGEX: s/$regex//ms");
+    $stdout =~ s/$regex//ms;
+    $self->logDebug( "REGEXED stdout", $stdout );
+    $self->logDebug( "stderr", $stderr );    
+
+    if ( defined $stdout and $stdout ne "" ) {
+      $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
+      sleep( $sleep );
+    }
+    else {
+      return 0;  #### OK
+    }
+    # else {
+    #   $self->logDebug( "GETTING EXIT CODE" );
+    #   my $command = "wait $processid; echo $?";
+    #   $self->logDebug( "command", $command );
+    #   my ( $stdout, $stderr ) = $self->ssh()->command( $command );
+    #   $self->logDebug( "stdout", $stdout );
+    #   $self->logDebug( "stderr", $stderr );
+
+
+    #   return $stdout;  
+    # }
+  }
+
+  return 0;  #### ERROR
+}
+
+# SUBROUTINE    printScriptFile
+#
+# PURPOSE
+#
+#   RETURN THE JOB HASH FOR THIS STAGE:
+# 
+#     command    :  Command line system call,
+#     label    :  Unique name for job (e.g., to be used by SGE)
+#     outputfile  :  Location of outputfile
+#
+
+method printScriptFile ( $command, $scriptfile, $exitfile, $lockfile ) {
+  $self->logDebug("scriptfile", $scriptfile);
+
+  #### CREATE DIR COMMANDS
+  $self->mkdirCommand($scriptfile);
+
+  my $contents  =  qq{#!/bin/bash
+
+# OPEN LOCKFILE
+date > $lockfile
+
+$command
+
+};
+  $self->logDebug("contents", $contents);
+
+
+
+# $self->logDebug( "DEBUG EXIT" ) and exit;
+
+
+
+
+  open(OUT, ">$scriptfile") or die "Can't open script file: $scriptfile\n";
+  print OUT $contents;
+  close(OUT);
+  chmod(0777, $scriptfile);
+  $self->logNote("scriptfile printed", $scriptfile);
 }
 
 method remoteCommand ( $command, $scriptfile, $stdoutfile, $stderrfile ) {
