@@ -1,11 +1,11 @@
 use MooseX::Declare;
-# use Method::Signatures::Simple;
 
 class Engine::Remote::Ssh with Util::Logger {
 
 #### EXTERNAL
 use Net::SCP qw(scp iscp);
-use Net::SSH::Perl;
+use Net::OpenSSH; 
+# use Net::SSH::Perl;
 use Data::Dumper;
 use File::Path;
 
@@ -71,7 +71,7 @@ method setUp ( $profilehash ) {
   $self->logDebug( "instancename", $instancename );
   $self->logDebug( "ipaddress", $ipaddress );
 
-  $self->addHostToHosts( $instancename, $instanceid, $ipaddress );
+  # $self->addHostToHosts( $instancename, $instanceid, $ipaddress );
 
   my $username = $profilehash->{ virtual }->{ username };
   $self->logDebug( "username", $username );
@@ -81,20 +81,20 @@ method setUp ( $profilehash ) {
   $self->_setSsh( $username, $ipaddress );
 }
 
-method addHostToHosts ( $instancename, $instanceid, $ipaddress ) {
+# method addHostToHosts ( $instancename, $instanceid, $ipaddress ) {
 
-  $self->logDebug( "Adding instance to own /etc/hosts" );
+#   $self->logDebug( "Adding instance to own /etc/hosts" );
   
-  my $contents = $self->util()->getFileContents( "/etc/hosts" );
+#   my $contents = $self->util()->getFileContents( "/etc/hosts" );
   
-  if ( not $contents =~ /$ipaddress/ ) {
-    $contents .= "$ipaddress\t$instancename\t$instanceid\n";
-  }
+#   if ( not $contents =~ /$ipaddress/ ) {
+#     $contents .= "$ipaddress\t$instancename\t$instanceid\n";
+#   }
 
-  my $filename = "/etc/hosts";
-  $self->util()->printToFile( $filename, $contents );
+#   my $filename = "/etc/hosts";
+#   $self->util()->printToFile( $filename, $contents );
 
-}
+# }
 
 method _setScp ( $username, $hostname ) {
   $self->logDebug("username", $username);
@@ -111,7 +111,6 @@ method _setSsh ( $username, $hostname ) {
   $self->logDebug("username", $username);
   $self->logDebug("hostname", $hostname);
   
-  use Net::OpenSSH; 
   $self->logDebug( "DOING Net::OpenSSH->new()" );
   my $ssh = Net::OpenSSH->new( 
     "$username\@$hostname",
@@ -141,11 +140,11 @@ method command ( $command ) {
   $self->logDebug( "command", $command );
   # $self->logDebug( "self->ssh()", $self->ssh() );
 
-  my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 100 }, $command );
+  my ($stdout, $stderr) = $self->ssh()->capture( { timeout => 1 }, $command );
   $self->ssh()->error and die "remote command failed with error: " . $self->ssh()->error;
   # my ( $stdout, $stderr, $exit ) = $self->ssh()->system( $command );
-  # $self->logDebug( "stdout", $stdout );
-  # $self->logDebug( "stderr", $stderr );
+  $self->logDebug( "stdout", $stdout );
+  $self->logDebug( "stderr", $stderr );
   # $self->logDebug( "exit", $exit );
 
   return ( $stdout, $stderr );

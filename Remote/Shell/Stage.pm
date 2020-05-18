@@ -51,11 +51,8 @@ has 'ssh'  =>  (
 
 method BUILD ($args) {
   # $self->logDebug( "args", $args );
-
   $self->profile( $args->{profile} ) if $args->{profile};
-
 }
-
 
 method setSystemCall ( $profilehash, $runfiles ) {
   $self->logCaller();
@@ -185,12 +182,14 @@ method run ( $dryrun ) {
   push @$systemcall, ' & echo $!';  
 
   #### CREATE REMOTE SCRIPTDIR
+  $self->ssh()->command( "ls /" );
+
   my $projectname  = $self->projectname();
   my $workflowname = $self->workflowname();
   my $scriptdir = "$remotefileroot/$projectname/$workflowname/scripts";
   $self->logDebug("scriptdir", $scriptdir);
   $self->ssh()->makeDir( $scriptdir );
-
+  
   #### PRINT COMMAND TO .sh FILE
   my $command = join " \\\n", @$systemcall;
   $self->printScriptFile( $command, $local->{scriptfile}, $remote->{exitfile}, $remote->{lockfile} );
@@ -245,16 +244,16 @@ method pollForCompletion ( $processid ) {
   while ( $counter < $limit ) {
     $counter++;
     my ( $stdout, $stderr ) = $self->ssh()->command( "ps aux | grep $processid" );
-    $self->logDebug( "ORIGINAL stdout", $stdout );
+    # $self->logDebug( "ORIGINAL stdout", $stdout );
     # my $regex = ".+?grep $processid";
     my $regex = "^.+ps aux \\| grep.+\$";
-    $self->logDebug( "REGEX: s/$regex//ms");
+    # $self->logDebug( "REGEX: s/$regex//ms");
     $stdout =~ s/$regex//ms;
-    $self->logDebug( "REGEXED stdout", $stdout );
-    $self->logDebug( "stderr", $stderr );    
+    $self->logDebug( "stdout", $stdout );
+    # $self->logDebug( "stderr", $stderr );    
 
     if ( defined $stdout and $stdout ne "" ) {
-      $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
+      # $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
       sleep( $sleep );
     }
     else {
