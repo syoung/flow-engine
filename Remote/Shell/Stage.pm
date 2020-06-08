@@ -34,7 +34,7 @@ class Engine::Remote::Shell::Stage extends (Engine::Local::Shell::Stage) {
 use File::Path;
 
 #### INTERNAL MODULES
-use Engine::Remote::Ssh;
+use Util::Remote::Ssh;
 
 #### ATTRIBUTES
 # Bool
@@ -46,12 +46,24 @@ use Engine::Remote::Ssh;
 
 has 'ssh'  =>  (
   is     =>  'rw',
-  isa    =>  'Engine::Remote::Ssh',
+  isa    =>  'Util::Remote::Ssh',
 );
 
 method BUILD ($args) {
   # $self->logDebug( "args", $args );
   $self->profile( $args->{profile} ) if $args->{profile};
+}
+
+method setSsh( $profilehash ) {
+  my $ssh  = Util::Remote::Ssh->new({
+    conf          =>  $self->conf(),
+    log           =>  $self->log(),
+    printlog      =>  $self->printlog()
+  });
+
+  $ssh->setUp( $profilehash );
+
+  $self->ssh( $ssh );  
 }
 
 method setSystemCall ( $profilehash, $runfiles ) {
@@ -62,7 +74,7 @@ method setSystemCall ( $profilehash, $runfiles ) {
   my $userhome      =  $self->userhome();
   my $envar         =  $self->envar();
   my $stagenumber   =  $self->appnumber();  
-  my $basedir       = $self->conf()->getKey("core:DIR");
+  my $basedir       =  $self->conf()->getKey("core:DIR");
 
   #### ADD PERL5LIB TO ENABLE EXTERNAL SCRIPTS TO USE OUR MODULES
   my $installdir = $self->conf()->getKey("core:INSTALLDIR");
@@ -76,7 +88,7 @@ method setSystemCall ( $profilehash, $runfiles ) {
   $self->logDebug( "fileroot", $fileroot );
 
   my $stageparameters =  $self->stageparameters();
-  $self->logDebug( "stageparameters", $stageparameters );
+  # $self->logDebug( "stageparameters", $stageparameters );
   $self->logError("stageparemeters not defined") and exit if not defined $stageparameters;
 # $self->logDebug( "DeBUG EXIT" ) and exit;
 
@@ -123,21 +135,6 @@ method setSystemCall ( $profilehash, $runfiles ) {
   return $systemcall;  
 }
 
-method setSsh( $profilehash ) {
-  my $username = $self->username();
-  $self->logDebug( "username", $username );
-
-  my $ssh  = Engine::Remote::Ssh->new({
-    conf          =>  $self->conf(),
-    log           =>  $self->log(),
-    printlog      =>  $self->printlog()
-  });
-
-  $ssh->setUp( $profilehash );
-
-  $self->ssh( $ssh );  
-}
-
 # SUBROUTINE    run
 #
 # PURPOSE
@@ -151,10 +148,9 @@ method setSsh( $profilehash ) {
 #   4. UPDATE STATUS TO 'complete' OR 'error'
 
 method run ( $dryrun ) {
-
   my $profilehash = $self->profilehash();
   $self->logDebug("dryrun", $dryrun);
-  $self->logDebug( "profilehash", $profilehash );
+  # $self->logDebug( "profilehash", $profilehash );
 
   #### SET SSH
   $self->setSsh( $profilehash );
@@ -187,7 +183,7 @@ method run ( $dryrun ) {
   my $projectname  = $self->projectname();
   my $workflowname = $self->workflowname();
   my $scriptdir = "$remotefileroot/$projectname/$workflowname/scripts";
-  $self->logDebug("scriptdir", $scriptdir);
+  $self->logDebug( "CREATING REMOTE SCRIPTDIR", $scriptdir );
   $self->ssh()->makeDir( $scriptdir );
   
   #### PRINT COMMAND TO .sh FILE
@@ -208,17 +204,23 @@ method run ( $dryrun ) {
 
   #### SET PERMISSIONS
   ( $stdout, $stderr ) = $self->ssh()->command( "chmod 755 $remote->{scriptfile}" );
-  $self->logDebug( "stdout", $stdout );
-  $self->logDebug( "stderr", $stderr );
+  # $self->logDebug( "stdout", $stdout );
+  # $self->logDebug( "stderr", $stderr );
 
   #### EXECUTE
   ( $stdout, $stderr ) = $self->ssh()->command( $remote->{scriptfile} );
   my $processid = $stdout;
+  $processid =~ s/\s+//g;
   $self->logDebug( "PROCESS ID", $processid );
-  $self->logDebug( "stderr", $stderr );
+  # $self->logDebug( "stderr", $stderr );
   
+  # my $processid = "117095";
+
   #### POLL FOR COMPLETION
-  my $exitcode = $self->pollForCompletion( $processid );
+  my $success = $self->pollForCompletion( $processid );
+
+$self->logDebug( "success", $success );
+$self->logDebug( 'DEBUG EXIT' ) and exit;
 
   #### RUN FILES
   $self->downloadRunFiles( $profilehash, $remote, $local );
@@ -227,14 +229,15 @@ method run ( $dryrun ) {
   # my $exitcode = $self->getExitCode( $local->{exitfile} );
   # $self->logDebug( "exitcode", $exitcode );
  
-  #### IF exitcode IS ZERO, SET STATUS TO 'completed'
+  #### IF success IS ZERO, SET STATUS TO 'completed'
   #### OTHERWISE, SET STATUS TO 'error' 
-  $self->setFinalStatus( $exitcode );
+  $self->setFinalStatus( $success );
   
-  return $exitcode;
+  return $success;
 }
 
 method pollForCompletion ( $processid ) {
+
   $self->logDebug( "processid", $processid );
 
   my $limit = 999;
@@ -244,35 +247,41 @@ method pollForCompletion ( $processid ) {
   while ( $counter < $limit ) {
     $counter++;
     my ( $stdout, $stderr ) = $self->ssh()->command( "ps aux | grep $processid" );
-    # $self->logDebug( "ORIGINAL stdout", $stdout );
-    # my $regex = ".+?grep $processid";
-    my $regex = "^.+ps aux \\| grep.+\$";
-    # $self->logDebug( "REGEX: s/$regex//ms");
-    $stdout =~ s/$regex//ms;
-    $self->logDebug( "stdout", $stdout );
-    # $self->logDebug( "stderr", $stderr );    
+    # $stdout =~ s/\s*$//g;
 
-    if ( defined $stdout and $stdout ne "" ) {
-      # $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
+#     $processid = "117872";
+#     $stdout = "117872  0.0  0.0   4356   648 ?        S    09:26   0:00 /usr/bin/time -o /home/ubuntu/.flow/abmod/5-40/scripts/1-download-pdb.usage -f %Uuser %Ssystem %Eelapsed %PCPU (%Xtext+%Ddata %Mmax)k /usr/bin/aws s3 cp s3://snugdock/benchmark/conf/ace2-vhh_complex_start.pdb /home/ubuntu/.flow/abmod/5-40
+# ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872 
+# ubuntu   117876  0.0  0.0  12940   928 ?        S    09:26   0:00 grep 117872";
+
+#     $self->logDebug( "BEFORE stdout", $stdout );
+#     $stdout =~ s/[^\n]+grep\s+$processid//msg;
+#     $self->logDebug( "AFTER stdout", $stdout );
+
+#     $stdout = "ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872
+# ";
+
+
+#     $stdout = "ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872 
+# ubuntu   117876  0.0  0.0  12940   928 ?        S    09:26   0:00 grep 117872";
+
+    $self->logDebug( "BEFORE stdout", $stdout );
+    $stdout =~ s/[^\n]+grep\s+$processid\s*//msgi;
+    $self->logDebug( "AFTER stdout", $stdout );
+
+
+
+    if ( defined $stdout and $stdout !~ /^\s*$/ ) {
+      $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
       sleep( $sleep );
     }
     else {
+      $self->logDebug( "RETURNING ZERO" );
       return 0;  #### OK
     }
-    # else {
-    #   $self->logDebug( "GETTING EXIT CODE" );
-    #   my $command = "wait $processid; echo $?";
-    #   $self->logDebug( "command", $command );
-    #   my ( $stdout, $stderr ) = $self->ssh()->command( $command );
-    #   $self->logDebug( "stdout", $stdout );
-    #   $self->logDebug( "stderr", $stderr );
-
-
-    #   return $stdout;  
-    # }
   }
 
-  return 0;  #### ERROR
+  return 1;  #### ERROR
 }
 
 # SUBROUTINE    printScriptFile
@@ -362,7 +371,7 @@ method getRemoteFileroot ( $profilehash, $username ) {
 }
 
 method copyToRemote ( $profilehash, $sourcefile, $targetfile ) {
-  $self->logDebug( "profilehash", $profilehash );
+  # $self->logDebug( "profilehash", $profilehash );
   # $self->logDebug( "sourcefile", $sourcefile );
   # $self->logDebug( "targetfile", $targetfile );
 
@@ -374,7 +383,7 @@ method copyToRemote ( $profilehash, $sourcefile, $targetfile ) {
   $self->logDebug( "target", $target );   
   
   my $result = $self->ssh()->copy( $source, $target );
-  $self->logDebug( "result", $result );
+  # $self->logDebug( "result", $result );
 
   return $result;
 }
