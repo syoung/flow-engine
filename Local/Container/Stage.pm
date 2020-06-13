@@ -134,9 +134,12 @@ method run ( $dryrun ) {
 }
 
 method setCommand ( $profilehash, $systemcall ) {
-  my $platform = $self->getProfileValue( "run:platform", $profilehash );
-  my $bindpoints = $self->getProfileValue( "run:bindpoints", $profilehash );
-  my $imagefile = $self->getProfileValue( "run:imagefile", $profilehash );
+  my $profiler = Util::Profiler->new();
+  $profiler->profilehash( $profilehash );
+
+  my $platform = $profiler->getProfileValue( "run:platform" );
+  my $bindpoints = $profiler->getProfileValue( "run:bindpoints" );
+  my $imagefile = $profiler->getProfileValue( "run:imagefile" );
   $self->logDebug( "platform", $platform );
   $self->logDebug( "bindpoints", $bindpoints );
   $self->logDebug( "imagefile", $imagefile );
@@ -218,7 +221,10 @@ method setSystemCall ( $profilehash, $runfiles ) {
 }
 
 method setUsagefile( $profilehash, $usagefile ) {
-  my $containertime = $self->getProfileValue( "run:binary:time", $profilehash ); 
+  my $profiler = Util::Profiler->new();
+  $profiler->profilehash( $profilehash );
+
+  my $containertime = $profiler->getProfileValue( "run:binary:time" ); 
 
   my $time = "/usr/bin/time";
   if ( $containertime ) {

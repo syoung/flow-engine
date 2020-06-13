@@ -428,11 +428,14 @@ method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, 
   # $self->logDebug( "string", $string ); 
   # $self->logDebug( "profilehash", $profilehash ); 
   # $self->logDebug( "installdir", $installdir );
+
+  my $profiler = Util::Profiler->new();
+  $profiler->profilehash( $profilehash );
   
   while ( $string =~ /<profile:([^>]+)>/ ) {
     my $keystring = $1;
     # $self->logDebug( "string", $string );
-    my $value = $self->getProfileValue( $keystring, $profilehash );
+    my $value = $profiler->getProfileValue( $keystring );
     # $self->logDebug( "value", $value );
 
     $string =~ s/<profile:$keystring>/$value/ if $value;
@@ -451,19 +454,6 @@ method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, 
   $self->logDebug( "string", $string );
 
   return $string;
-}
-
-method getProfileValue ( $keystring, $profilehash ) {
-  $self->logDebug( "keystring", $keystring );
-  my @keys = split ":", $keystring;
-  my $hash = $profilehash;
-  foreach my $key ( @keys ) {
-    $hash  = $hash->{$key};
-    return undef if not defined $hash;
-    # $self->logDebug("hash", $hash);
-  }
-
-  return $hash;
 }
 
 method containsRedirection ($arguments) {
