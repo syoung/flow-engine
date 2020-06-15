@@ -135,6 +135,18 @@ method setSystemCall ( $profilehash, $runfiles ) {
   return $systemcall;  
 }
 
+
+# SUBROUTINE    setStageJob
+#
+# PURPOSE
+#
+#   RETURN THE JOB HASH FOR THIS STAGE:
+#  
+#     command    :  Command line system call,
+#     label    :  Unique name for job (e.g., to be used by SGE)
+#     outputfile  :  Location of outputfile
+
+
 # SUBROUTINE    run
 #
 # PURPOSE
@@ -152,88 +164,95 @@ method run ( $dryrun ) {
   $self->logDebug("dryrun", $dryrun);
   # $self->logDebug( "profilehash", $profilehash );
 
-  #### SET SSH
-  $self->setSsh( $profilehash );
+  my $stage = $self->  
+
+
+
+  $self->sendTask($queuename, $task);
+
+
+#   #### SET SSH
+#   $self->setSsh( $profilehash );
   
-  #### SET RUN FILES
-  my $localusername = $self->username();
-  my $remoteusername = $profilehash->{ virtual }->{ username };
-  my $localfileroot = $self->util()->getFileroot( $localusername );  
-  my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
-  $self->logDebug( "localfileroot", $localfileroot );
-  $self->logDebug( "remotefileroot", $remotefileroot );
-  my $remote = $self->setRunFiles( $remotefileroot );
-  my $local  = $self->setRunFiles( $localfileroot );
+#   #### SET RUN FILES
+#   my $localusername = $self->username();
+#   my $remoteusername = $profilehash->{ virtual }->{ username };
+#   my $localfileroot = $self->util()->getFileroot( $localusername );  
+#   my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
+#   $self->logDebug( "localfileroot", $localfileroot );
+#   $self->logDebug( "remotefileroot", $remotefileroot );
+#   my $remote = $self->setRunFiles( $remotefileroot );
+#   my $local  = $self->setRunFiles( $localfileroot );
 
-  #### REGISTER PROCESS IDS SO WE CAN MONITOR THEIR PROGRESS
-  $self->registerRunInfo( $local->{ stdoutfile }, $local->{ stderrfile } );
+#   #### REGISTER PROCESS IDS SO WE CAN MONITOR THEIR PROGRESS
+#   $self->registerRunInfo( $local->{ stdoutfile }, $local->{ stderrfile } );
 
-  #### SET SYSTEM CALL TO POPULATE RUN SCRIPT
-  my $systemcall = $self->setSystemCall( $profilehash, $remote );
+#   #### SET SYSTEM CALL TO POPULATE RUN SCRIPT
+#   my $systemcall = $self->setSystemCall( $profilehash, $remote );
 
-  #### ADD STDOUT AND STDERR FILES TO SYSTEM CALL
-  $systemcall = $self->addOutputFiles( $systemcall, $remote->{stdoutfile}, $remote->{stderrfile} );
+#   #### ADD STDOUT AND STDERR FILES TO SYSTEM CALL
+#   $systemcall = $self->addOutputFiles( $systemcall, $remote->{stdoutfile}, $remote->{stderrfile} );
 
-  #### GET PID
-  push @$systemcall, ' & echo $!';  
+#   #### GET PID
+#   push @$systemcall, ' & echo $!';  
 
-  #### CREATE REMOTE SCRIPTDIR
-  $self->ssh()->command( "ls /" );
+#   #### CREATE REMOTE SCRIPTDIR
+#   $self->ssh()->command( "ls /" );
 
-  my $projectname  = $self->projectname();
-  my $workflowname = $self->workflowname();
-  my $scriptdir = "$remotefileroot/$projectname/$workflowname/scripts";
-  $self->logDebug( "CREATING REMOTE SCRIPTDIR", $scriptdir );
-  $self->ssh()->makeDir( $scriptdir );
+#   my $projectname  = $self->projectname();
+#   my $workflowname = $self->workflowname();
+#   my $scriptdir = "$remotefileroot/$projectname/$workflowname/scripts";
+#   $self->logDebug( "CREATING REMOTE SCRIPTDIR", $scriptdir );
+#   $self->ssh()->makeDir( $scriptdir );
   
-  #### PRINT COMMAND TO .sh FILE
-  my $command = join " \\\n", @$systemcall;
-  $self->printScriptFile( $command, $local->{scriptfile}, $remote->{exitfile}, $remote->{lockfile} );
+#   #### PRINT COMMAND TO .sh FILE
+#   my $command = join " \\\n", @$systemcall;
+#   $self->printScriptFile( $command, $local->{scriptfile}, $remote->{exitfile}, $remote->{lockfile} );
   
-  #### UPDATE STATUS TO 'running'
-  $self->setRunningStatus();
+#   #### UPDATE STATUS TO 'running'
+#   $self->setRunningStatus();
 
-  #### NO BUFFERING
-  $| = 1;
+#   #### NO BUFFERING
+#   $| = 1;
 
-  #### COPY SCRIPT TO REMOTE
-  my ( $stdout, $stderr, $exit ) = $self->copyToRemote( $profilehash, $local->{scriptfile}, $remote->{scriptfile} );
-  $self->logDebug( "stdout", $stdout );
-  $self->logDebug( "stderr", $stderr );
-  $self->logDebug( "exit", $exit );
+#   #### COPY SCRIPT TO REMOTE
+#   my ( $stdout, $stderr, $exit ) = $self->copyToRemote( $profilehash, $local->{scriptfile}, $remote->{scriptfile} );
+#   $self->logDebug( "stdout", $stdout );
+#   $self->logDebug( "stderr", $stderr );
+#   $self->logDebug( "exit", $exit );
 
-  #### SET PERMISSIONS
-  ( $stdout, $stderr ) = $self->ssh()->command( "chmod 755 $remote->{scriptfile}" );
-  # $self->logDebug( "stdout", $stdout );
-  # $self->logDebug( "stderr", $stderr );
+#   #### SET PERMISSIONS
+#   ( $stdout, $stderr ) = $self->ssh()->command( "chmod 755 $remote->{scriptfile}" );
+#   # $self->logDebug( "stdout", $stdout );
+#   # $self->logDebug( "stderr", $stderr );
 
-  #### EXECUTE
-  ( $stdout, $stderr ) = $self->ssh()->command( $remote->{scriptfile} );
-  my $processid = $stdout;
-  $processid =~ s/\s+//g;
-  $self->logDebug( "PROCESS ID", $processid );
-  # $self->logDebug( "stderr", $stderr );
+#   #### EXECUTE
+#   ( $stdout, $stderr ) = $self->ssh()->command( $remote->{scriptfile} );
+#   my $processid = $stdout;
+#   $processid =~ s/\s+//g;
+#   $self->logDebug( "PROCESS ID", $processid );
+#   # $self->logDebug( "stderr", $stderr );
   
-  # my $processid = "117095";
+#   # my $processid = "117095";
 
-  #### POLL FOR COMPLETION
-  my $success = $self->pollForCompletion( $processid );
+#   #### POLL FOR COMPLETION
+#   my $success = $self->pollForCompletion( $processid );
 
-$self->logDebug( "success", $success );
-$self->logDebug( 'DEBUG EXIT' ) and exit;
+# $self->logDebug( "success", $success );
+# $self->logDebug( 'DEBUG EXIT' ) and exit;
 
-  #### RUN FILES
-  $self->downloadRunFiles( $profilehash, $remote, $local );
+#   #### RUN FILES
+#   $self->downloadRunFiles( $profilehash, $remote, $local );
 
-  # #### EXIT CODE
-  # my $exitcode = $self->getExitCode( $local->{exitfile} );
-  # $self->logDebug( "exitcode", $exitcode );
+#   # #### EXIT CODE
+#   # my $exitcode = $self->getExitCode( $local->{exitfile} );
+#   # $self->logDebug( "exitcode", $exitcode );
  
-  #### IF success IS ZERO, SET STATUS TO 'completed'
-  #### OTHERWISE, SET STATUS TO 'error' 
-  $self->setFinalStatus( $success );
+#   #### IF success IS ZERO, SET STATUS TO 'completed'
+#   #### OTHERWISE, SET STATUS TO 'error' 
+#   $self->setFinalStatus( $success );
   
-  return $success;
+#   return $success;
 }
 
 method pollForCompletion ( $processid ) {
@@ -359,81 +378,6 @@ method downloadRunFiles ( $profilehash, $remote, $local ) {
 
   return $success;
 }
-
-method getRemoteFileroot ( $profilehash, $username ) {
-  $self->logNote("username", $username);
-
-  my $profiler = Util::Profiler->new();
-  $profiler->profilehash( $profilehash );
-
-  my $homedir = $self->getProfileValue( "host:homedir", $profilehash ) || "/home";
-  my $basedir = $self->conf()->getKey("core:DIR");
-  my $fileroot = "$homedir/$username/$basedir";
-  
-  return $fileroot;    
-}
-
-method copyToRemote ( $profilehash, $sourcefile, $targetfile ) {
-  # $self->logDebug( "profilehash", $profilehash );
-  # $self->logDebug( "sourcefile", $sourcefile );
-  # $self->logDebug( "targetfile", $targetfile );
-
-  my $remoteusername = $profilehash->{ virtual }->{ username };
-  my $ipaddress = $profilehash->{ instance }->{ ipaddress };
-  my $source = $sourcefile;
-  my $target = "$remoteusername\@$ipaddress:$targetfile";
-  # $self->logDebug( "source", $source ); 
-  $self->logDebug( "target", $target );   
-  
-  my $result = $self->ssh()->copy( $source, $target );
-  # $self->logDebug( "result", $result );
-
-  return $result;
-}
-
-method copyFromRemote ( $profilehash, $sourcefile, $targetfile ) {
-  # $self->logCaller();
-  # $self->logDebug( "profilehash", $profilehash );
-  # $self->logDebug( "sourcefile", $sourcefile );
-  # $self->logDebug( "targetfile", $targetfile );
-
-  my $remoteusername = $profilehash->{ virtual }->{ username };
-  my $ipaddress = $profilehash->{ instance }->{ ipaddress };
-  my $source = "$remoteusername\@$ipaddress:$sourcefile";
-  my $target = $targetfile;
-  # $self->logDebug( "remotehost", $remotehost );    
-  # $self->logDebug( "source", $source ); 
-  
-  my $result = $self->ssh()->copy( $source, $target );
-  # $self->logDebug( "result", $result );
-
-$self->logDebug( "target $result ", $target );   
-  
-  return $result;
-}
-
-method containsRedirection ($arguments) {
-  return if not defined $arguments or not @$arguments;
-  
-  foreach my $argument ( @$arguments ) {
-    return "stdout" if $argument eq ">" or $argument eq "1>";
-    return "stderr" if $argument eq "2>";
-  }
-  
-  return 0;
-}
-
-
-# SUBROUTINE    setStageJob
-#
-# PURPOSE
-#
-#   RETURN THE JOB HASH FOR THIS STAGE:
-#  
-#     command    :  Command line system call,
-#     label    :  Unique name for job (e.g., to be used by SGE)
-#     outputfile  :  Location of outputfile
-
 
 
 

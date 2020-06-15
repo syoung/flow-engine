@@ -924,11 +924,11 @@ AND appnumber = '$appnumber'};
   $self->logError("Could not update stage table with stagepid: $stagepid") and exit if not $success;
 }
 
-method toString () {
+method toString {
   print $self->_toString();
 }
 
-method _toString () {
+method _toString {
   my @keys = qw[ username projectname workflownumber workflowname appname appnumber start executor location fileroot queue queue_options outputdir scriptfile stdoutfile stderrfile workflowpid stagepid stagejobid submit setuid installdir cluster qsub qstat resultfile];
   my $string = '';
   foreach my $key ( @keys )
@@ -945,78 +945,93 @@ method _toString () {
 1;
 
 
-# method setStageJob {
-#   #$self->logCaller("");
 
-#   #### CLUSTER MONITOR
-#   my $monitor    =  $self->monitor();  
-#   #### GET MAIN PARAMS
-#   my $username   = $self->username();
-#   my $projectname   = $self->projectname();
-#   my $workflownumber   = $self->workflownumber();
-#   my $workflowname   = $self->workflowname();
-#   my $appnumber     = $self->appnumber();
-#   my $queue     = $self->queue();
-#   my $cluster    = $self->cluster();
-#   my $qstat    = $self->qstat();
-#   my $qsub    = $self->qsub();
-#   my $workflowpid = $self->workflowpid();
-#   #$self->logDebug("$$ cluster", $cluster);
+method setStageJob {
 
-#   #### SET DEFAULTS
-#   $queue = '' if not defined $queue;
+=head2
 
-#   #### GET FILE ROOT
-#   my $fileroot = $self->util()->getFileroot($username);
-
-#   #### GET ARGUMENTS ARRAY
-#   my $stageparameters =  $self->stageparameters();
-#   #$self->logDebug("$$ Arguments", $stageparameters);
-#   $stageparameters =~ s/\'/"/g;
-#   my $arguments = $self->setArguments($stageparameters);  
-
-#   #### GET PERL5LIB FOR EXTERNAL SCRIPTS TO FIND Agua MODULES
-#   my $installdir = $self->conf()->getKey("core:INSTALLDIR");
-#   my $perl5lib = $ENV{"PERL5LIB"};
+  SUBROUTINE    setStageJob
   
-#   #### SET EXECUTOR
-#   my $executor  .=  "export PERL5LIB=$perl5lib; ";
-#   $executor     .=   $self->executor() if defined $self->executor();
-#   #$self->logDebug("$$ self->executor(): " . $self->executor());
-
-#   #### SET APPLICATION
-#   my $application = $self->installdir() . "/" . $self->location();  
-#   #$self->logDebug("$$ application", $application);
-
-#   #### ADD THE INSTALLDIR IF THE LOCATION IS NOT AN ABSOLUTE PATH
-#   #$self->logDebug("$$ installdir", $installdir);
-#   if ( $application !~ /^\// and $application !~ /^[A-Z]:/i ) {
-#     $application = "$installdir/bin/$application";
-#     #$self->logDebug("$$ Added installdir to stage_arguments->{location}: " . $application);
-#   }
-
-#   #### SET SYSTEM CALL
-#   my @systemcall = ($application, @$arguments);
-#   my $command = "$executor @systemcall";
+  PURPOSE
   
-#   #### GET OUTPUT DIR
-#   my $outputdir = $self->outputdir();
-#   #$self->logDebug("$$ outputdir", $outputdir);
+    RETURN THE JOB HASH FOR THIS STAGE:
+    
+      command    :  Command line system call,
+      label    :  Unique name for job (e.g., to be used by SGE)
+      outputfile  :  Location of outputfile
 
-#   #### SET JOB NAME AS projectname-workflowname-appnumber
-#   my $label =  $projectname;
-#   $label .= "-" . $workflownumber;
-#   $label .= "-" . $workflowname;
-#   $label .= "-" . $appnumber;
-#   #$self->logDebug("$$ label", $label);
+=cut
+
+  #$self->logCaller("");
+
+  #### CLUSTER MONITOR
+  my $monitor    =  $self->monitor();  
+  #### GET MAIN PARAMS
+  my $username   = $self->username();
+  my $projectname   = $self->projectname();
+  my $workflownumber   = $self->workflownumber();
+  my $workflowname   = $self->workflowname();
+  my $appnumber     = $self->appnumber();
+  my $cluster    = $self->cluster();
+  my $qstat    = $self->qstat();
+  my $qsub    = $self->qsub();
+  my $workflowpid = $self->workflowpid();
+  #$self->logDebug("$$ cluster", $cluster);
+
+  #### GET BASE DIRECTORY FOR CREATING STDOUTFILE LATER
+  my $basedir   = $self->conf()->getKey("core:DIR");
+
+  #### GET FILE ROOT
+  my $fileroot = $self->util()->getFileroot($username);
+
+  #### GET ARGUMENTS ARRAY
+  my $stageparameters =  $self->stageparameters();
+  #$self->logDebug("$$ Arguments", $stageparameters);
+  $stageparameters =~ s/\'/"/g;
+  my $arguments = $self->setArguments( $stageparameters );  
+
+  #### GET PERL5LIB FOR EXTERNAL SCRIPTS TO FIND Agua MODULES
+  my $installdir = $self->conf()->getKey("core:INSTALLDIR");
+  my $perl5lib = $ENV{"PERL5LIB"};
   
-#   my $samplehash  =  $self->samplehash();
-#   $self->logNote("samplehash", $samplehash);
-#   if ( defined $samplehash ) {
-#     my $id    =  $samplehash->{sample};
-#     $label    =  "$id.$label";
-#   }
+  #### SET EXECUTOR
+  my $executor  .=  "export PERL5LIB=$perl5lib; ";
+  $executor     .=   $self->executor() if defined $self->executor();
+  #$self->logDebug("$$ self->executor(): " . $self->executor());
 
-#   #### SET JOB 
-#   return $self->setJob([$command], $label, $outputdir);
-# }
+  #### SET APPLICATION
+  my $application = $self->installdir() . "/" . $self->location();  
+  #$self->logDebug("$$ application", $application);
+
+  #### ADD THE INSTALLDIR IF THE LOCATION IS NOT AN ABSOLUTE PATH
+  #$self->logDebug("$$ installdir", $installdir);
+  if ( $application !~ /^\// and $application !~ /^[A-Z]:/i ) {
+    $application = "$installdir/bin/$application";
+    #$self->logDebug("$$ Added installdir to stage_arguments->{location}: " . $application);
+  }
+
+  #### SET SYSTEM CALL
+  my @systemcall = ($application, @$arguments);
+  my $command = "$executor @systemcall";
+  
+  #### GET OUTPUT DIR
+  my $outputdir = $self->outputdir();
+  #$self->logDebug("$$ outputdir", $outputdir);
+
+  #### SET JOB NAME AS projectname-workflowname-appnumber
+  my $label =  $projectname;
+  $label .= "-" . $workflownumber;
+  $label .= "-" . $workflowname;
+  $label .= "-" . $appnumber;
+  #$self->logDebug("$$ label", $label);
+  
+  my $samplehash  =  $self->samplehash();
+  $self->logNote("samplehash", $samplehash);
+  if ( defined $samplehash ) {
+    my $id    =  $samplehash->{sample};
+    $label    =  "$id.$label";
+  }
+
+  #### SET JOB 
+  return $self->setJob([$command], $label, $outputdir);
+}
