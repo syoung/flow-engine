@@ -28,7 +28,7 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../";
 
-class Engine::Remote::Queue::Stage extends (Engine::Local::Shell::Stage) {
+class Engine::Remote::Queue::Stage with (Util::Logger, Engine::Common::Stage, Exchange) {
 
 #### EXTERNAL MODULES
 use File::Path;
@@ -36,14 +36,38 @@ use File::Path;
 #### INTERNAL MODULES
 use Util::Remote::Ssh;
 
-#### ATTRIBUTES
-# Bool
-# Int
-# Str
+# #### ATTRIBUTES
+# # Bool
+
+# # Int/Nums
+# has 'appnumber'      =>  ( isa => 'Str', is => 'rw');
+# has 'workflownumber' =>  ( isa => 'Str', is => 'rw');
+# has 'start'          =>  ( isa => 'Int', is => 'rw' );
+
+# # Str
+# has 'profile'        =>  ( isa => 'Str|Undef', is => 'rw' );
+# has 'submit'         =>  ( isa => 'Str|Undef', is => 'rw' );
+# has 'workflowpid'    =>  ( isa => 'Str|Undef', is => 'rw' );
+# has 'stagepid'       =>  ( isa => 'Str|Undef', is => 'rw' );
+# has 'stagejobid'     =>  ( isa => 'Str|Undef', is => 'rw' );
+# has 'username'       =>  ( isa => 'Str', is => 'rw', required => 1  );
+# has 'workflowname'   =>  ( isa => 'Str', is => 'rw', required => 1  );
+# has 'projectname'    =>  ( isa => 'Str', is => 'rw', required => 1  );
+# has 'appname'        =>  ( isa => 'Str', is => 'rw', required => 1  );
+# has 'apptype'        =>  ( isa => 'Str', is => 'rw', required => 1  );
+# has 'started'        =>  ( isa => 'Str', is => 'rw' );
+# has 'stdoutfile'     =>  ( isa => 'Str', is => 'rw' );
+# has 'stderrfile'     =>  ( isa => 'Str', is => 'rw' );
+
 # HashRef/ArrayRef
+has 'fields'         =>  ( 
+  isa => 'ArrayRef[Str|Undef]', 
+  is => 'rw', 
+  default => sub { 
+    [ "username", "projectname", "workflowname", "workflownumber", "appname", "profile", "profilehash", "samplehash" ];
+});
+
 # Class/Object
-
-
 has 'ssh'  =>  (
   is     =>  'rw',
   isa    =>  'Util::Remote::Ssh',
@@ -51,7 +75,7 @@ has 'ssh'  =>  (
 
 method BUILD ($args) {
   # $self->logDebug( "args", $args );
-  $self->profile( $args->{profile} ) if $args->{profile};
+  # $self->profilehash( $args->{profilehash} ) if $args->{profilehash};
 }
 
 method setSsh( $profilehash ) {
@@ -164,11 +188,16 @@ method run ( $dryrun ) {
   $self->logDebug("dryrun", $dryrun);
   # $self->logDebug( "profilehash", $profilehash );
 
-  my $stage = $self->  
+  my $projectname  = $self->projectname();
+  my $workflowname = $self->workflowname();
+  my $username     = $self->username();
 
+  my $stagedata = $self->toData();
+  $self->logDebug( "stagedata", $stagedata );
 
+  my $queuename = "$username.$projectname.$workflowname.queue";
 
-  $self->sendTask($queuename, $task);
+  $self->sendTask( $queuename, $stagedata );
 
 
 #   #### SET SSH
@@ -253,6 +282,23 @@ method run ( $dryrun ) {
 #   $self->setFinalStatus( $success );
   
 #   return $success;
+}
+
+method toData {
+
+  my $data = {};
+  foreach my $field ( @{$self->fields()} )
+  {
+      next if not defined $self->$field() or $self->$field() =~ /^\s*$/;
+      $data->{ $field } = $self->$field();
+  }
+  $self->logDebug( "data", $data );
+
+  my $stageparameters = $self->stageparameters();
+  $self->logDebug( "stageparameters", $stageparameters );
+  $data->{ stageparameters } = $stageparameters;
+
+  return $data;
 }
 
 method pollForCompletion ( $processid ) {

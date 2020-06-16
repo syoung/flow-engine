@@ -95,76 +95,13 @@ has 'fields'         =>  (
   isa => 'ArrayRef[Str|Undef]', 
   is => 'rw', 
   default => sub { 
-    ['owner', 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes'] 
+    [ 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes' ] 
   } );
-
-# has 'envarsub'       => ( 
-#   isa => 'Maybe', 
-#   is => 'rw', 
-#   lazy => 1, 
-#   builder => "setEnvarsub" 
-# );
-
-# method setEnvarsub {
-#   return *_envarSub;
-# }
-  
-# method _envarSub ($envars, $values, $parent) {
-#   $self->logDebug("parent: $parent");
-#   $self->logDebug("envars", $envars);
-#   $self->logDebug("values", $values);
-#   #$self->logDebug("SELF->CONF", $self->conf());
-  
-#   my $profile = $self->profile();
-
-#   #### SET USERNAME AND CLUSTER IF NOT DEFINED
-#   if ( not defined $values->{sgeroot} ) {
-#     $values->{sgeroot} = $profile->{scheduler}->{sgeroot};
-#   }
-  
-#   #### SET CLUSTER
-#   if ( not defined $values->{cluster} and defined $values->{sgecell}) {
-#     $values->{cluster} = $values->{sgecell};
-#   }
-  
-#   #### SET QMASTERPORT
-#   if ( not defined $values->{qmasterport}
-#     or (
-#       defined $values->{username}
-#       and $values->{username}
-#       and defined $values->{cluster}
-#       and $values->{cluster}
-#       and defined $self->table()->db()
-#       and defined $self->table()->db()->dbh()      
-#     )
-#   ) {
-#     $values->{qmasterport} = $profile->{scheduler}->{qmasterport};
-#     $values->{execport}    = $profile->{scheduler}->{execport};
-#     $self->logDebug("values", $values);
-#   }
-  
-#   $values->{queue} = $parent->setQueueName($values);
-#   $self->logDebug("values", $values);
-  
-#   return $self->values($values);  
-# }
-
-# has 'customvars'=>  ( isa => 'HashRef', is => 'rw', default => sub {
-#   return {
-#     cluster     =>   "CLUSTER",
-#     qmasterport   =>   "SGE_MASTER_PORT",
-#     execdport     =>   "SGE_EXECD_PORT",
-#     sgecell     =>   "SGE_CELL",
-#     sgeroot     =>   "SGE_ROOT",
-#     queue       =>   "QUEUE"
-#   };
-# });
 
 # Object
 has 'conf'           => ( isa => 'Conf::Yaml', is => 'rw', required => 1 );
 
 has 'db'             => ( isa => 'Any', is => 'rw', required => 0 );
-# has 'monitor'    =>   ( isa => 'Maybe', is => 'rw', required => 0 );
 has 'stageparameters'=> ( isa => 'ArrayRef', is => 'rw', required => 1 );
 has 'samplehash'     =>  ( isa => 'HashRef|Undef', is => 'rw', required => 0  );
 
@@ -174,6 +111,11 @@ has 'util'           =>  (
   lazy     =>  1,
   builder  =>  "setUtil"
 );
+
+method BUILD ($args) {
+  #$self->logDebug("$$ Stage::BUILD  args:");
+  #$self->logDebug("$$ args", $args);
+}
 
 method setUtil () {
   my $util = Util::Main->new({
@@ -199,28 +141,23 @@ method setEnvar {
   $self->logDebug("envarsub", $envarsub);
   
   my $envar = Envar->new({
-    db      =>  $self->table()->db(),
-    conf    =>  $self->conf(),
+    db          =>  $self->table()->db(),
+    conf        =>  $self->conf(),
     customvars  =>  $customvars,
-    envarsub  =>  $envarsub,
-    parent    =>  $self
+    envarsub    =>  $envarsub,
+    parent      =>  $self
   });
   
   $self->envar($envar);
 }
 
 has 'table'    =>  (
-  is       =>  'rw',
-  isa     =>  'Table::Main',
-  lazy    =>  1,
-  builder  =>  "setTable"
+  is           =>  'rw',
+  isa          =>  'Table::Main',
+  lazy         =>  1,
+  builder      =>  "setTable"
 );
 
-
-method BUILD ($args) {
-  #$self->logDebug("$$ Stage::BUILD  args:");
-  #$self->logDebug("$$ args", $args);
-}
 
 method getField ($field) {
   my $username  =  $self->username();
@@ -1035,3 +972,5 @@ method setStageJob {
   #### SET JOB 
   return $self->setJob([$command], $label, $outputdir);
 }
+
+1;
