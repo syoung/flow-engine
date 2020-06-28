@@ -179,10 +179,11 @@ method run ($dryrun) {
   return (undef, $error) if not defined $jobid or $jobid =~ /^\s*$/;
 
   #### SET STAGE PID
-  $self->setStagePid($jobid);
+  $self->setProccessId($jobid);
   
   #### SET QUEUED
-  $self->setQueued();
+  my $now = $self->table()->db()->now();
+  $self->setStageQueued( $now );
 
   #### GET JOB STATUS
   $self->logDebug("$$ Monitoring job...");
@@ -198,7 +199,9 @@ method run ($dryrun) {
   while ( $jobstatus ne "completed" and $jobstatus ne "error" ) {
     sleep($sleep);
     $jobstatus = $monitor->jobStatus($jobid);
-    $self->setRunning() if $jobstatus eq "running" and not $set_running;
+
+    my $now = $self->table()->db()->now();
+    $self->setStageRunning( $now ) if $jobstatus eq "running" and not $set_running;
     $set_running = 1 if $jobstatus eq "running";
 
     $self->setStatus('completed') if $jobstatus eq "completed";
@@ -264,17 +267,6 @@ AND appnumber = '$appnumber'};
   my $success = $self->table()->db()->do($query);
   $self->logDebug("success", $success);
   $self->logError("Could not update stage table with qsuboptions: $qsuboptions") and exit if not $success;
-}
-
-method setQueued {
-  $self->logDebug("$$ Stage::setQueued(set)");
-  my $now = $self->table()->db()->now();
-  my $set = qq{
-status    =  'queued',
-started   =   '',
-queued     =   $now,
-completed   =   ''};
-  $self->setFields($set);
 }
 
 method setEnvarsub {

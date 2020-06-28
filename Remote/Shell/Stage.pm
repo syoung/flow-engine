@@ -191,7 +191,8 @@ method run ( $dryrun ) {
   $self->printScriptFile( $command, $local->{scriptfile}, $remote->{exitfile}, $remote->{lockfile} );
   
   #### UPDATE STATUS TO 'running'
-  $self->setRunningStatus();
+  my $now = $self->table()->db()->now();
+  $self->setStageRunning( $now );
 
   #### NO BUFFERING
   $| = 1;
@@ -214,13 +215,11 @@ method run ( $dryrun ) {
   $self->logDebug( "PROCESS ID", $processid );
   # $self->logDebug( "stderr", $stderr );
   
-  # my $processid = "117095";
-
   #### POLL FOR COMPLETION
   my $success = $self->pollForCompletion( $processid );
+  $self->logDebug( "success", $success );
 
-$self->logDebug( "success", $success );
-$self->logDebug( 'DEBUG EXIT' ) and exit;
+# $self->logDebug( 'DEBUG EXIT' ) and exit;
 
   #### RUN FILES
   $self->downloadRunFiles( $profilehash, $remote, $local );
@@ -247,32 +246,13 @@ method pollForCompletion ( $processid ) {
   while ( $counter < $limit ) {
     $counter++;
     my ( $stdout, $stderr ) = $self->ssh()->command( "ps aux | grep $processid" );
-    # $stdout =~ s/\s*$//g;
 
-#     $processid = "117872";
-#     $stdout = "117872  0.0  0.0   4356   648 ?        S    09:26   0:00 /usr/bin/time -o /home/ubuntu/.flow/abmod/5-40/scripts/1-download-pdb.usage -f %Uuser %Ssystem %Eelapsed %PCPU (%Xtext+%Ddata %Mmax)k /usr/bin/aws s3 cp s3://snugdock/benchmark/conf/ace2-vhh_complex_start.pdb /home/ubuntu/.flow/abmod/5-40
-# ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872 
-# ubuntu   117876  0.0  0.0  12940   928 ?        S    09:26   0:00 grep 117872";
-
-#     $self->logDebug( "BEFORE stdout", $stdout );
-#     $stdout =~ s/[^\n]+grep\s+$processid//msg;
-#     $self->logDebug( "AFTER stdout", $stdout );
-
-#     $stdout = "ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872
-# ";
-
-
-#     $stdout = "ubuntu   117874  0.0  0.0  11240  3084 ?        Ss   09:26   0:00 bash -c ps aux | grep 117872 
-# ubuntu   117876  0.0  0.0  12940   928 ?        S    09:26   0:00 grep 117872";
-
-    $self->logDebug( "BEFORE stdout", $stdout );
+    # $self->logDebug( "BEFORE stdout", $stdout );
     $stdout =~ s/[^\n]+grep\s+$processid\s*//msgi;
-    $self->logDebug( "AFTER stdout", $stdout );
-
-
+    # $self->logDebug( "AFTER stdout", $stdout );
 
     if ( defined $stdout and $stdout !~ /^\s*$/ ) {
-      $self->logDebug( "WAITING FOR PROCESS TO END. processid", $processid );
+      $self->logDebug( "WAITING FOR PROCESS $processid. SLEEPING $sleep SECONDS" );
       sleep( $sleep );
     }
     else {

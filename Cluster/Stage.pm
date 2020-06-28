@@ -179,7 +179,7 @@ method run ($dryrun) {
   return (undef, $error) if not defined $jobid or $jobid =~ /^\s*$/;
 
   #### SET STAGE PID
-  $self->setStagePid($jobid);
+  $self->setProcessId($jobid);
   
   #### SET QUEUED
   $self->setQueued();
@@ -198,7 +198,9 @@ method run ($dryrun) {
   while ( $jobstatus ne "completed" and $jobstatus ne "error" ) {
     sleep($sleep);
     $jobstatus = $monitor->jobStatus($jobid);
-    $self->setRunning() if $jobstatus eq "running" and not $set_running;
+
+    my $now = $self->table()->db()->now();
+    $self->setStageRunning( $now ) if $jobstatus eq "running" and not $set_running;
     $set_running = 1 if $jobstatus eq "running";
 
     $self->setStatus('completed') if $jobstatus eq "completed";

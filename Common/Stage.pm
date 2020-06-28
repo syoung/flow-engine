@@ -35,31 +35,35 @@ use Method::Signatures::Simple;
 use strict;
 use warnings;
 
+#### USE LIB FOR INHERITANCE
+use FindBin qw($Bin);
+use lib "$Bin/../";
+
 #### EXTERNAL MODULES
 use IO::Pipe;
 use Data::Dumper;
-use FindBin qw($Bin);
-
-#### USE LIB FOR INHERITANCE
-use lib "$Bin/../";
+use File::Path;
 
 #### INTERNAL MODULES
 use Engine::Envar;
+use Util::Profile;
 
 # Booleans
-
 # Int/Nums
-has 'appnumber'      =>  ( isa => 'Str', is => 'rw');
-has 'ancestor'       =>  ( isa => 'Str|Undef', is => 'rw');
-has 'successor'      =>  ( isa => 'Str|Undef', is => 'rw');
-has 'workflownumber' =>  ( isa => 'Str', is => 'rw');
-has 'start'          =>  ( isa => 'Int', is => 'rw' );
+has 'appnumber'      =>  ( isa => 'Int', is => 'rw', required => 1 );
+has 'ancestor'       =>  ( isa => 'Int|Undef', is => 'rw');
+has 'successor'      =>  ( isa => 'Int|Undef', is => 'rw');
+has 'workflownumber' =>  ( isa => 'Int', is => 'rw');
+has 'first'          =>  ( isa => 'Int', is => 'rw' );
+has 'last'           =>  ( isa => 'Int', is => 'rw' );
 has 'slots'          =>  ( isa => 'Int|Undef', is => 'rw' );
 has 'maxjobs'        =>  ( isa => 'Int|Undef', is => 'rw' );
+has 'timeout'        =>  ( isa => 'Int|Undef', is => 'rw' , default => 100000000 );
 has 'runsleep'       =>  ( isa => 'Num|Undef', is => 'rw', default => 0.5 );
 
 # Str
 has 'profile'        =>  ( isa => 'Str|Undef', is => 'rw' );
+has 'profilename'    =>  ( isa => 'Str|Undef', is => 'rw' );
 has 'submit'         =>  ( isa => 'Str|Undef', is => 'rw' );
 has 'workflowpid'    =>  ( isa => 'Str|Undef', is => 'rw' );
 has 'stagepid'       =>  ( isa => 'Str|Undef', is => 'rw' );
@@ -68,11 +72,11 @@ has 'username'       =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'workflowname'   =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'projectname'    =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'appname'        =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'apptype'        =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'outputdir'      =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'apptype'        =>  ( isa => 'Str', is => 'rw', required => 0  );
+has 'outputdir'      =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'scriptfile'     =>  ( isa => 'Str', is => 'rw', required => 0 );
 has 'installdir'     =>  ( isa => 'Str', is => 'rw', required => 1  );
-has 'version'        =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'version'        =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'scheduler'      =>  ( isa => 'Str|Undef', is => 'rw', default  =>  "local" );
 
 has 'fileroot'       =>  ( isa => 'Str|Undef', is => 'rw', default => '' );
@@ -88,20 +92,22 @@ has 'stdoutfile'     =>  ( isa => 'Str', is => 'rw' );
 has 'stderrfile'     =>  ( isa => 'Str', is => 'rw' );
 has 'started'        =>  ( isa => 'Str', is => 'rw' );
 has 'completed'      =>  ( isa => 'Str', is => 'rw' );
+has 'description'    =>  ( isa => 'Str', is => 'rw' );
+has 'notes'          =>  ( isa => 'Str', is => 'rw' );
 
 # Hash/Array
 has 'profilehash'    =>  ( isa => 'HashRef|Undef', is => 'rw' );
+
 has 'fields'         =>  ( 
   isa => 'ArrayRef[Str|Undef]', 
   is => 'rw', 
   default => sub { 
-    [ 'appname', 'appnumber', 'apptype', 'location', 'submit', 'executor', 'prescript', 'description', 'notes' ] 
-  } );
+    [ "username", "projectname", "workflowname", "workflownumber", "appname", "appnumber", "apptype", "profile", "profilename", "first", "last", "samplehash", "installdir", "location", "prescript", "executor", "description", "notes" ];
+});
 
 # Object
 has 'conf'           => ( isa => 'Conf::Yaml', is => 'rw', required => 1 );
 
-has 'db'             => ( isa => 'Any', is => 'rw', required => 0 );
 has 'stageparameters'=> ( isa => 'ArrayRef', is => 'rw', required => 1 );
 has 'samplehash'     =>  ( isa => 'HashRef|Undef', is => 'rw', required => 0  );
 
@@ -112,9 +118,46 @@ has 'util'           =>  (
   builder  =>  "setUtil"
 );
 
+has 'table'   =>  (
+  is      =>  'rw',
+  isa     =>  'Table::Main',
+  lazy    =>  1,
+  builder   =>  "setTable"
+);
+
+method setTable () {
+  my $table = Table::Main->new({
+    conf      =>  $self->conf(),
+    log       =>  $self->log(),
+    printlog  =>  $self->printlog(),
+    logfile   =>  $self->logfile()
+  });
+
+  $self->table($table); 
+}
+
 method BUILD ($args) {
   #$self->logDebug("$$ Stage::BUILD  args:");
   #$self->logDebug("$$ args", $args);
+}
+
+
+method toData {
+
+  my $data = {};
+  foreach my $field ( @{$self->fields()} )
+  {
+    # $self->logDebug( "field", $field );
+      next if not defined $self->$field() or $self->$field() =~ /^\s*$/;
+      $data->{ $field } = $self->$field();
+  }
+  # $self->logDebug( "data", $data );
+
+  my $stageparameters = $self->stageparameters();
+  $self->logDebug( "stageparameters", $stageparameters );
+  $data->{ stageparameters } = $stageparameters;
+
+  return $data;
 }
 
 method setUtil () {
@@ -190,17 +233,9 @@ method getStatus {
   return $self->getField("status");
 }
 
-method setRunningStatus {
-  my $now = $self->table()->db()->now();
-  my $set = qq{status='running',
-started=$now,
-queued=$now,
-completed='0000-00-00 00:00:00'};
-  $self->setFields($set);
-}
-
 method setSystemCall ( $profilehash, $runfiles ) {
   $self->logCaller();
+  $self->logDebug( "profilehash", $profilehash );
 
   #### GET FILE ROOT
   my $username      =  $self->username();
@@ -219,19 +254,21 @@ method setSystemCall ( $profilehash, $runfiles ) {
   my $stageparameters =  $self->stageparameters();
   $self->logDebug( "stageparameters", $stageparameters );
   $self->logError("stageparemeters not defined") and exit if not defined $stageparameters;
-# $self->logDebug( "DeBUG EXIT" ) and exit;
 
   my $projectname   =  $$stageparameters[0]->{projectname};
   my $workflowname  =  $$stageparameters[0]->{workflowname};
 
   #### REPLACE <TAGS> IN PARAMETERS
   foreach my $stageparameter ( @$stageparameters ) {
+    $self->logDebug( "BEFORE stageparameters->value = self->replaceTags() " );
     $stageparameter->{value} = $self->replaceTags( $stageparameter->{value}, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir );
+    $self->logDebug( "AFTER stageparameters->value = self->replaceTags() " );
   }
 
   #### CONVERT ARGUMENTS INTO AN ARRAY IF ITS A NON-EMPTY STRING
   my $arguments = $self->setArguments( $stageparameters );
   $self->logDebug("arguments", $arguments);
+  $self->logDebug( "runfiles", $runfiles );
 
   #### ADD USAGE COMMAND (HANDLE OSX VERSION OF time )
   my $usage  =  $self->setUsagefile( $runfiles->{usagefile} );
@@ -250,7 +287,8 @@ method setSystemCall ( $profilehash, $runfiles ) {
   #### PREFIX APPLICATION PATH WITH PACKAGE INSTALLATION DIRECTORY
   my $application = $self->installdir() . "/" . $self->location();  
   $self->logDebug("$$ application", $application);
-  $application  =  $self->replaceTags( $application, $userhome, $fileroot, $projectname, $workflowname, $installdir );
+
+  $application  =  $self->replaceTags( $application, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir );
 
   #### SET SYSTEM CALL
   my $systemcall = [];
@@ -361,21 +399,23 @@ method parsePreScriptFile ($file) {
 }
 
 method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir ) {
+  $self->logDebug( "profilehash", $profilehash );
   # $self->logCaller();
   # $self->logDebug( "string", $string ); 
   # $self->logDebug( "profilehash", $profilehash ); 
   # $self->logDebug( "installdir", $installdir );
 
-  my $profiler = Util::Profiler->new();
-  $profiler->profilehash( $profilehash );
-  
-  while ( $string =~ /<profile:([^>]+)>/ ) {
-    my $keystring = $1;
-    # $self->logDebug( "string", $string );
-    my $value = $profiler->getProfileValue( $keystring );
-    # $self->logDebug( "value", $value );
+  my $profile = Util::Profile->new();
+  $profile->profilehash( $profilehash );
+  if ( defined $profile ) {
+    while ( $string =~ /<profile:([^>]+)>/ ) {
+      my $keystring = $1;
+      # $self->logDebug( "string", $string );
+      my $value = $profile->getProfileValue( $keystring );
+      # $self->logDebug( "value", $value );
 
-    $string =~ s/<profile:$keystring>/$value/ if $value;
+      $string =~ s/<profile:$keystring>/$value/ if $value;
+    }    
   }
  
 	my $flowhome = $ENV{'FLOW_HOME'};
@@ -439,7 +479,7 @@ date > $lockfile
 
 $command
 
-#### REMOVE LOCKFILE
+# PRINT EXIT CODE
 echo \$? > $exitfile
 
 # REMOVE LOCKFILE
@@ -500,7 +540,7 @@ method setArguments ( $stageparameters ) {
     my $paramname  =  $stageparameter->{paramname};
     my $argument   =  $stageparameter->{argument};
     my $value     =  $stageparameter->{value};
-    my $valuetype   =  $stageparameter->{valuetype};
+    my $valuetype   =  $stageparameter->{valuetype} || "string";
     my $discretion   =  $stageparameter->{discretion};
     my $projectname    =  $stageparameter->{projectname};
     my $workflowname  =  $stageparameter->{workflowname};    
@@ -535,7 +575,7 @@ method setArguments ( $stageparameters ) {
     $self->logNote("discretion", $discretion);
 
     #### SKIP EMPTY FLAG OR ADD 'checked' FLAG
-    if ( $valuetype eq "flag" ) {
+    if ( defined $valuetype and $valuetype eq "flag" ) {
       if (not defined $argument or not $argument) {
         $self->logNote("Skipping empty flag", $argument);
         next;
@@ -575,23 +615,30 @@ method setArguments ( $stageparameters ) {
       }
 
       #### 'X=' OPTIONS
-      if ( $argument =~ /=$/ ) {
-        push @$arguments, qq{$argument$value};
-      }
-
-      #### '-' OPTIONS (E.G., -i)
-      elsif ( $argument =~ /^\-[^\-]/ ) {
-        push @$arguments, qq{$argument $value};
-      }
-      
-      #### DOUBLE '-' OPTIONS (E.G., --inputfile)
-      else {
-        push @$arguments, $argument if defined $argument and $argument ne "";
+      if ( not defined $argument ) {
         push @$arguments, $value;
+      }
+      else {
+        if ( $argument =~ /=$/ ) {
+          push @$arguments, qq{$argument$value};
+        }
+
+        #### '-' OPTIONS (E.G., -i)
+        elsif ( $argument =~ /^\-[^\-]/ ) {
+          push @$arguments, qq{$argument $value};
+        }
+        
+        #### DOUBLE '-' OPTIONS (E.G., --inputfile)
+        else {
+          push @$arguments, $argument if defined $argument and $argument ne "";
+          push @$arguments, $value;
+        }
+
       }
 
       $self->logNote("AFTER value", $value);
-      $self->logNote("current arguments", $arguments);
+      $self->logNote("current arguments", $arguments);          
+
     }
   }
 
@@ -721,17 +768,6 @@ method isComplete {
 }
 
 
-method initialiseRunTimes ($mysqltime) {
-  $self->logDebug("mysqltime", $mysqltime);
-  my $set = qq{
-queued = '$mysqltime',
-started = '$mysqltime',
-completed = ''};
-  #$self->logDebug("$$ set", $set);
-
-  $self->setFields($set);
-}
-
 method setRunTimes ($jobid) {
   $self->logDebug("$$ Stage::setRunTimes(jobid)");
   $self->logDebug("$$ jobid", $jobid);
@@ -767,7 +803,37 @@ completed = '$completed'};
 
   $self->setFields($set);
 }
-method setStatus ($status) {  
+# method setJob( $stagedata ) {  
+# #### SET THE status FIELD IN THE stage TABLE FOR THIS STAGE
+
+#   $self->logDebug("status", $status);
+
+#   #### GET TABLE KEYS
+#   my $username = $self->username();
+#   my $projectname = $self->projectname();
+#   my $workflowname = $self->workflowname();
+#   my $appnumber = $self->appnumber();
+#   my $completed = "completed=" . $self->table()->db()->now();
+#   # my $completed = "completed = DATE_SUB(NOW(), INTERVAL 3 SECOND)";
+#   $completed = "completed=''" if $status eq "running";
+
+#   my $query = qq{UPDATE stage
+# SET
+# status = '$status',
+# $completed
+# WHERE username = '$username'
+# AND projectname = '$projectname'
+# AND workflowname = '$workflowname'
+# AND appnumber = '$appnumber'};
+#   # $self->logNote("$query");
+#   my $success = $self->table()->db()->do($query);
+#   if ( not $success ) {
+#     $self->logError("Can't update 'stage' table entry: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
+#     exit;
+#   }
+# }
+
+method setStageStatus ( $status ) {  
 #### SET THE status FIELD IN THE stage TABLE FOR THIS STAGE
   $self->logDebug("status", $status);
 
@@ -776,46 +842,72 @@ method setStatus ($status) {
   my $projectname = $self->projectname();
   my $workflowname = $self->workflowname();
   my $appnumber = $self->appnumber();
-  my $completed = "completed=" . $self->table()->db()->now();
-  # my $completed = "completed = DATE_SUB(NOW(), INTERVAL 3 SECOND)";
-  $completed = "completed=''" if $status eq "running";
-  
+
   my $query = qq{UPDATE stage
-SET
-status = '$status',
-$completed
+SET status = '$status'
 WHERE username = '$username'
 AND projectname = '$projectname'
 AND workflowname = '$workflowname'
 AND appnumber = '$appnumber'};
-  # $self->logNote("$query");
+  $self->logDebug( "query", $query );
   my $success = $self->table()->db()->do($query);
-  if ( not $success )
-  {
-    $self->logError("Can't update stage (project: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
+  if ( not $success ) {
+    $self->logError("Can't update 'stage' table entry: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
+    exit;
+  }
+
+  $query = qq{UPDATE workflow
+SET status = '$status'
+WHERE username = '$username'
+AND projectname = '$projectname'
+AND workflowname = '$workflowname'};
+
+  $success = $self->table()->db()->do($query);
+  if ( not $success ) {
+    $self->logError("Can't update 'workflow' table entry (project: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
+    exit;
+  }
+
+  $query = qq{UPDATE project
+SET status = '$status'
+WHERE username = '$username'
+AND projectname = '$projectname'};
+
+  $success = $self->table()->db()->do($query);
+  if ( not $success ) {
+    $self->logError("Can't update 'project' table entry: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
     exit;
   }
 }
 
-method setQueued {
-  $self->logDebug("$$ Stage::setQueued(set)");
-  my $now = $self->table()->db()->now();
+method setStageQueued ( $now ) {
+  $self->logDebug( "now", $now );
   my $set = qq{
-status    =  'queued',
+queued    =   $now,
 started   =   '',
-queued     =   $now,
-completed   =   ''};
+completed =   ''};
   $self->setFields($set);
+
+  $self->setStageStatus( "queued" );
 }
 
-method setRunning {
-  $self->logDebug("$$ Stage::setRunning(set)");
-  my $now = $self->table()->db()->now();
+method setStageRunning ( $now ) {
+  $self->logDebug( "now", $now );
   my $set = qq{
-status    =  'running',
-started   =   $now,
-completed   =   ''};
+started   =   '$now',
+completed =   ''};
   $self->setFields($set);
+
+  $self->setStageStatus( "running" );
+}
+
+method setStageCompleted ( $now ) {
+  $self->logDebug( "now", $now );
+  my $set = qq{
+completed =   '$now'};
+  $self->setFields($set);
+
+  $self->setStageStatus( "completed" );
 }
 
 method setFields ($set) {
@@ -837,28 +929,6 @@ AND appnumber = '$appnumber'};
   #$self->logDebug("$query");
   my $success = $self->table()->db()->do($query);
   $self->logError("Could not set fields for stage (project: $projectname, workflow: $workflowname, number: $appnumber) set : '$set'") and exit if not $success;
-}
-
-method setStagePid ($stagepid) {
-  $self->logDebug("stagepid", $stagepid);
-  
-  #### GET TABLE KEYS
-  my $username   = $self->username();
-  my $projectname   = $self->projectname();
-  my $workflowname   = $self->workflowname();
-  my $appnumber     = $self->appnumber();
-  my $now     = $self->table()->db()->now();
-  my $query = qq{UPDATE stage
-SET
-stagepid = '$stagepid'
-WHERE username = '$username'
-AND projectname = '$projectname'
-AND workflowname = '$workflowname'
-AND appnumber = '$appnumber'};
-  $self->logDebug("$query");
-  my $success = $self->table()->db()->do($query);
-  $self->logDebug("success", $success);
-  $self->logError("Could not update stage table with stagepid: $stagepid") and exit if not $success;
 }
 
 method toString {

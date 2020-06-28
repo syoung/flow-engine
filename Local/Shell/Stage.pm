@@ -31,11 +31,9 @@ class Engine::Local::Shell::Stage with (Engine::Common::Stage,
   Util::Logger, 
   Util::Timer) {
 
-
+#### SEE Engine::Common::Stage
 #### EXTERNAL MODULES
-
 #### INTERNAL MODULES
-
 #### ATTRIBUTES
 # Bool
 # Int
@@ -43,13 +41,12 @@ class Engine::Local::Shell::Stage with (Engine::Common::Stage,
 # HashRef/ArrayRef
 # Class/Object
 
-
-method BUILD ($args) {
+method BUILD ( $args ) {
   #$self->logDebug("$$ Stage::BUILD  args:");
   #$self->logDebug("$$ args", $args);
 }
 
-method run ( $dryrun) {
+method run ( $dryrun ) {
 =head2
 
   SUBROUTINE    run
@@ -78,61 +75,39 @@ method run ( $dryrun) {
   $self->registerRunInfo( $runfiles->{stdoutfile}, $runfiles->{stderrfile} );
 
   #### SET SYSTEM CALL TO POPULATE RUN SCRIPT
-  my $systemcall = $self->setSystemCall( $profilehash, $runfiles->{stdoutfile} );
+  my $systemcall = $self->setSystemCall( $profilehash, $runfiles );
 
   #### ADD STDOUT AND STDERR FILES TO SYSTEM CALL
   $systemcall = $self->addOutputFiles( $systemcall, $runfiles->{stdoutfile}, $runfiles->{stderrfile} );
 
   #### PRINT COMMAND TO .sh FILE
-  my $command = join "\n", @$systemcall;
+  my $command = join " \\\n", @$systemcall;
   $self->printScriptFile( $command, $runfiles->{scriptfile}, $runfiles->{exitfile}, $runfiles->{lockfile} );
   
   #### UPDATE STATUS TO 'running'
-  $self->setRunningStatus();
-
-  #### NO BUFFERING
-  $| = 1;
+  my $now = $self->table()->db()->now();
+  $self->setStageRunning( $now );
 
   #### RUN
-  $self->logDebug("PID $$ BEFORE SUBMIT command");
-  `$runfiles->{scriptfile}`;
-  $self->logDebug("PID $$ AFTER SUBMIT command");
-  
-  #### DISABLE STDOUT BUFFERING ON PARENT
-  $| = 1;
-  
-  #### PAUSE FOR RESULT FILE TO BE WRITTEN 
-  sleep( $self->runsleep() );
-  $self->logDebug("Finished wait for command to complete");
+  $self->logDebug("BEFORE SUBMIT command");
+  my $commandfile = $runfiles->{scriptfile};
+  $self->logDebug( "commandfile", $commandfile );
 
-  my $exitcode = $self->getExitCode( $runfiles->{exitfile} );
-  $self->logDebug( "exitcode", $exitcode );
- 
-  #### IF exitcode IS ZERO, SET STATUS TO 'completed'
-  #### OTHERWISE, SET STATUS TO 'error' 
-  $self->setFinalStatus( $exitcode );
-  
-  return $exitcode;
-}
+  # #### GET PID
+  # push @$systemcall, ' & echo $!';  
+  # my $pid = `$commandfile`;
+  my $processid = open my $fh, "-|", "/bin/bash $commandfile" or die $!;
+  $self->logDebug( "processid", $processid );
 
-method setFinalStatus ( $exitcode ) {
-  if ( defined $exitcode and $exitcode == 0 ) {
-    $self->setStatus('completed') ;
-  }
-  else {
-    $self->setStatus('error');
-  }
-}
+  #### ADD processid TO stage TABLE
+  my $stagedata = $self->toData();
+  $stagedata->{ processid } = $processid;
 
-method getExitCode ( $exitfile ) {
-  open( RESULT, $exitfile );
-  my $exitcode = <RESULT>;
-  close( RESULT );
+  $self->table()->updateJobs( $stagedata );
 
-  $exitcode  =~   s/\s+$// if defined $exitcode;
-  $self->logDebug("exitcode", $exitcode);
 
-  return $exitcode;  
+
+  return $processid;
 }
 
 method addOutputFiles ( $systemcall, $stdoutfile, $stderrfile ) {
@@ -294,108 +269,7 @@ completed = ''};
   $self->setFields($set);
 }
 
-method setRunningStatus () {
-  my $now = $self->table()->db()->now();
-  my $set = qq{status='running',
-started=$now,
-queued=$now,
-completed='0000-00-00 00:00:00'};
-  $self->setFields($set);
-}
 
-method setStatus ($status) {  
-#### SET THE status FIELD IN THE stage TABLE FOR THIS STAGE
-  $self->logDebug("$$ status", $status);
-
-  #### GET TABLE KEYS
-  my $username = $self->username();
-  my $projectname = $self->projectname();
-  my $workflowname = $self->workflowname();
-  my $appnumber = $self->appnumber();
-  my $completed = "completed=" . $self->table()->db()->now();
-  # my $completed = "completed = DATE_SUB(NOW(), INTERVAL 3 SECOND)";
-  $completed = "completed=''" if $status eq "running";
-  
-  my $query = qq{UPDATE stage
-SET
-status = '$status',
-$completed
-WHERE username = '$username'
-AND projectname = '$projectname'
-AND workflowname = '$workflowname'
-AND appnumber = '$appnumber'};
-  $self->logNote("$query");
-  my $success = $self->table()->db()->do($query);
-  if ( not $success )
-  {
-    $self->logError("Can't update stage (project: $projectname, workflow: $workflowname, number: $appnumber) with status: $status");
-    exit;
-  }
-}
-
-method setQueued () {
-  $self->logDebug("$$ Stage::setQueued(set)");
-  my $now = $self->table()->db()->now();
-  my $set = qq{
-status    =  'queued',
-started   =   '',
-queued     =   $now,
-completed   =   ''};
-  $self->setFields($set);
-}
-
-method setRunning () {
-  $self->logDebug("$$ Stage::setRunning(set)");
-  my $now = $self->table()->db()->now();
-  my $set = qq{
-status    =  'running',
-started   =   $now,
-completed   =   ''};
-  $self->setFields($set);
-}
-
-method setFields ($set) {
-  #$self->logDebug("set", $set);
-
-  #### GET TABLE KEYS
-  my $username   =   $self->username();
-  my $projectname   =   $self->projectname();
-  my $workflowname   =   $self->workflowname();
-  my $appnumber     =   $self->appnumber();
-  my $now     =   $self->table()->db()->now();
-
-  my $query = qq{UPDATE stage
-SET $set
-WHERE username = '$username'
-AND projectname = '$projectname'
-AND workflowname = '$workflowname'
-AND appnumber = '$appnumber'};  
-  #$self->logDebug("$query");
-  my $success = $self->table()->db()->do($query);
-  $self->logError("Could not set fields for stage (project: $projectname, workflow: $workflowname, number: $appnumber) set : '$set'") and exit if not $success;
-}
-
-method setStagePid ($stagepid) {
-  $self->logDebug("stagepid", $stagepid);
-  
-  #### GET TABLE KEYS
-  my $username   = $self->username();
-  my $projectname   = $self->projectname();
-  my $workflowname   = $self->workflowname();
-  my $appnumber     = $self->appnumber();
-  my $now     = $self->table()->db()->now();
-  my $query = qq{UPDATE stage
-SET
-stagepid = '$stagepid'
-WHERE username = '$username'
-AND projectname = '$projectname'
-AND workflowname = '$workflowname'
-AND appnumber = '$appnumber'};
-  $self->logDebug("$query");
-  my $success = $self->table()->db()->do($query);
-  $self->logDebug("success", $success);
-  $self->logError("Could not update stage table with stagepid: $stagepid") and exit if not $success;
-}
 
 method toString () {
   print $self->_toString();

@@ -107,7 +107,8 @@ method run ( $dryrun ) {
   $self->printScriptFile( $command, $runfiles->{scriptfile}, $runfiles->{exitfile}, $runfiles->{lockfile} );
   
   #### UPDATE STATUS TO 'running'
-  $self->setRunningStatus();
+  my $now = $self->table()->db()->now();
+  $self->setStageRunning( $now );
 
   #### NO BUFFERING
   $| = 1;
