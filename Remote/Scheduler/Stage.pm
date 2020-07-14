@@ -32,9 +32,6 @@ class Engine::Cluster::Stage with (Engine::Common::Stage,
   Util::Timer, 
   Engine::Cluster::Jobs) {
 
-  # Web::Base, 
-
-
 #### EXTERNAL MODULES
 use Data::Dumper;
 use FindBin qw($Bin);
@@ -54,18 +51,6 @@ has 'qstat'        =>  ( isa => 'Str', is => 'rw' );
 has 'resultfile'  =>  ( isa => 'Str', is => 'ro', default => sub { "/tmp/result-$$" });
 has 'qsuboptions'      =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'queued'      =>  ( isa => 'Str', is => 'rw' );
-
-# Hash/Array
-# has 'customvars'=>  ( isa => 'HashRef', is => 'rw', default => sub {
-#   return {
-#     cluster     =>   "CLUSTER",
-#     qmasterport   =>   "SGE_MASTER_PORT",
-#     execdport     =>   "SGE_EXECD_PORT",
-#     sgecell     =>   "SGE_CELL",
-#     sgeroot     =>   "SGE_ROOT",
-#     queue       =>   "QUEUE"
-#   };
-# });
 
 # Object
 has 'monitor'    =>   ( isa => 'Maybe', is => 'rw', required => 0 );

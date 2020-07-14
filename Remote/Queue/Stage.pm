@@ -66,99 +66,6 @@ method setSsh( $profilehash ) {
   $self->ssh( $ssh );  
 }
 
-method setSystemCall ( $profilehash, $runfiles ) {
-  $self->logCaller();
-
-  #### GET FILE ROOT
-  my $username      =  $self->username();
-  my $userhome      =  $self->userhome();
-  my $envar         =  $self->envar();
-  my $stagenumber   =  $self->appnumber();  
-  my $basedir       =  $self->conf()->getKey("core:DIR");
-
-  #### ADD PERL5LIB TO ENABLE EXTERNAL SCRIPTS TO USE OUR MODULES
-  my $installdir = $self->conf()->getKey("core:INSTALLDIR");
-  my $perl5lib = $ENV{"PERL5LIB"};
-  $self->logDebug( "installdir: $installdir" );
-  $self->logDebug( "perl5lib: $perl5lib" );
-
-  #### SET REMOTE FILEROOT
-  my $remoteusername = $profilehash->{ virtual }->{ username };
-  my $fileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
-  $self->logDebug( "fileroot", $fileroot );
-
-  my $stageparameters =  $self->stageparameters();
-  # $self->logDebug( "stageparameters", $stageparameters );
-  $self->logError("stageparemeters not defined") and exit if not defined $stageparameters;
-# $self->logDebug( "DeBUG EXIT" ) and exit;
-
-  my $projectname   =  $$stageparameters[0]->{projectname};
-  my $workflowname  =  $$stageparameters[0]->{workflowname};
-
-  #### REPLACE <TAGS> IN PARAMETERS
-  foreach my $stageparameter ( @$stageparameters ) {
-    $stageparameter->{value} = $self->replaceTags( $stageparameter->{value}, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir );
-  }
-
-  #### CONVERT ARGUMENTS INTO AN ARRAY IF ITS A NON-EMPTY STRING
-  my $arguments = $self->setArguments( $stageparameters );
-  $self->logDebug("arguments", $arguments);
-
-  #### ADD USAGE COMMAND (HANDLE OSX VERSION OF time )
-  my $usage  =  $self->setUsagefile( $runfiles->{usagefile} );
-
-  #### SET EXPORTS
-  my $exports     = "export STAGENUMBER=$stagenumber;";  
-  $exports .=  "export PERL5LIB=$perl5lib; ";
-  $exports .=  " cd $fileroot/$projectname/$workflowname;";
-  $exports .= $self->getPrescript( $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir );
-  $self->logDebug("FINAL exports", $exports);
-
-  #### SET EXECUTOR 
-  my $executor = $self->executor();
-  $self->logDebug("executor", $executor);
-  
-  #### PREFIX APPLICATION PATH WITH PACKAGE INSTALLATION DIRECTORY
-  my $application = $self->installdir() . "/" . $self->location();  
-  $self->logDebug("$$ application", $application);
-  $application  =  $self->replaceTags( $application, $userhome, $fileroot, $projectname, $workflowname, $installdir );
-
-  #### SET SYSTEM CALL
-  my $systemcall = [];
-  push @$systemcall, $exports;
-  push @$systemcall, $usage;
-  push @$systemcall, $executor if defined $executor and $executor ne "";
-  push @$systemcall, $application;
-  @$systemcall = (@$systemcall, @$arguments);
-  $self->logDebug( "systemcall", $systemcall );
-
-  return $systemcall;  
-}
-
-
-# SUBROUTINE    setStageJob
-#
-# PURPOSE
-#
-#   RETURN THE JOB HASH FOR THIS STAGE:
-#  
-#     command    :  Command line system call,
-#     label    :  Unique name for job (e.g., to be used by SGE)
-#     outputfile  :  Location of outputfile
-
-
-# SUBROUTINE    run
-#
-# PURPOSE
-#
-#   1. AND UPDATE STATUS TO 'running'
-#
-#   2. RUN THE STAGE APPLICATION 
-#  
-#   3. WAIT TO COMPLETE
-#
-#   4. UPDATE STATUS TO 'complete' OR 'error'
-
 method run ( $dryrun ) {
   my $profilehash = $self->profilehash();
   $self->logDebug("dryrun", $dryrun);
@@ -181,116 +88,163 @@ method run ( $dryrun ) {
   #### SEND TASK
   my $stagedata = $self->toData();
   $stagedata->{ remoteusername } = $remoteusername;
+  $stagedata->{ first   } = $self->first();
+  $stagedata->{ last    } = $self->last();
+  $stagedata->{ current } = $self->appnumber();
   $self->logDebug( "stagedata", $stagedata, 1 );
+
+  #### ADD TO job DATABASE TABLE
+  my $success = $self->table()->addJob( $stagedata );
+  $self->logDebug( "success", $success );
 
   my $queuename = "$username.$projectname.$workflowname.queue";
   $self->sendTask( $queuename, $stagedata );
 
   #### SET STATUS=queued
   my $now = $self->table()->db()->now();
-  $self->setStageQueued( $now );
+  $self->table()->setStageQueued( $stagedata, $now );
+}
+
+# method kill {
+#   #### SEND doShutdown
+
+#   $self->stop();
+
+#   my $queuename = "$username.$projectname.$workflowname.queue";
+#   $self->sendTask( $queuename, $stagedata );
+
+# }
+
+method stop {
+  $self->logCaller();
+
+  my $data = {
+    mode            => "doStop",
+    username        => $self->username(),
+    projectname     => $self->projectname(),
+    workflowname    => $self->workflowname(),
+    workflownumber  => $self->workflownumber(),
+    appname         => $self->appname(),
+    appnumber       => $self->appnumber()    
+  };
+
+  my $exchange = $self->conf()->getKey( "mq:service:steward" );
+  $self->logDebug( "exchange", $exchange );
+  my $routingkey = $self->username() . "." . $self->projectname() . "." . $self->workflowname() . ".topic";
+  $self->sendTopic( $exchange, $routingkey, $data );
+
+  # #### SET STATUS=queued
+  # my $now = $self->table()->db()->now();
+  # $self->table()->setStageQueued( $data, $now );
+
+  # my $processid = $self->getProcessId( $workflowdata );
+  # $self->logDebug( "processid", $processid );
+
+# #### 1. 'kill -9' THE PROCESS IDS OF ANY RUNNING STAGE OF THE WORKFLOW
+# #### 2. INCLUDES STAGE PID, App PARENT PID AND App CHILD PID)
+
+#     # $self->logDebug("stages", $stages);
+#     # my $messages = [];
+#     # foreach my $stage ( @$stages )
+#     # {
+#     #     #### OTHERWISE, KILL ALL PIDS
+#     #     push @$messages, $self->util()->killPid($stage->{childpid}) if defined $stage->{childpid};
+#     #     push @$messages, $self->util()->killPid($stage->{parentpid}) if defined $stage->{parentpid};
+#     #     push @$messages, $self->util()->killPid($stage->{stagepid}) if defined $stage->{stagepid};
+#     #     push @$messages, $self->util()->killPid($stage->{workflowpid}) if defined $stage->{workflowpid};
+#     # }
+
+
+}
+
+method getProcessId( $data ) {
+# #   my $job = $self->table()->getJobByWorkflow( $data );
+# #   $self->logDebug( "job", $job );
+
+# #   return $job->{ processid };
+# # }
+
+# #   # #### UPDATE STATUS TO 'running'
+# #   # $self->setCompleted();
+
+
+# #   # #### SET SSH
+# #   # $self->setSsh( $profilehash );
+  
+# #   # #### SET RUN FILES
+# #   # my $localusername = $self->username();
+# #   # my $remoteusername = $profilehash->{ virtual }->{ username };
+# #   # my $localfileroot = $self->util()->getFileroot( $localusername );  
+# #   # my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
+# #   # $self->logDebug( "localfileroot", $localfileroot );
+# #   # $self->logDebug( "remotefileroot", $remotefileroot );
+# #   # my $remote = $self->setRunFiles( $remotefileroot );
+# #   # my $local  = $self->setRunFiles( $localfileroot );
+  
+
+# # #   #### POLL FOR COMPLETION
+# # #   my $success = $self->pollForCompletion( $processid );
+
+# # # $self->logDebug( "success", $success );
+# # # $self->logDebug( 'DEBUG EXIT' ) and exit;
+
+# # #   #### RUN FILES
+# # #   $self->downloadRunFiles( $profilehash, $remote, $local );
+
+# # #   # #### EXIT CODE
+# # #   # my $exitcode = $self->getExitCode( $local->{exitfile} );
+# # #   # $self->logDebug( "exitcode", $exitcode );
+ 
+# # #   #### IF success IS ZERO, SET STATUS TO 'completed'
+# # #   #### OTHERWISE, SET STATUS TO 'error' 
+# # #   $self->setFinalStatus( $success );
+  
+# # #   return $success;
 }
 
 
-#   # #### UPDATE STATUS TO 'running'
-#   # $self->setCompleted();
+method printScriptFile ( $command, $scriptfile, $exitfile, $lockfile ) {
+  $self->logDebug("scriptfile", $scriptfile);
 
+  #### CREATE DIR COMMANDS
+  $self->mkdirCommand($scriptfile);
 
-#   # #### SET SSH
-#   # $self->setSsh( $profilehash );
-  
-#   # #### SET RUN FILES
-#   # my $localusername = $self->username();
-#   # my $remoteusername = $profilehash->{ virtual }->{ username };
-#   # my $localfileroot = $self->util()->getFileroot( $localusername );  
-#   # my $remotefileroot = $self->getRemoteFileroot( $profilehash, $remoteusername );
-#   # $self->logDebug( "localfileroot", $localfileroot );
-#   # $self->logDebug( "remotefileroot", $remotefileroot );
-#   # my $remote = $self->setRunFiles( $remotefileroot );
-#   # my $local  = $self->setRunFiles( $localfileroot );
-  
+  my $contents  =  qq{#!/bin/bash
 
-# #   #### POLL FOR COMPLETION
-# #   my $success = $self->pollForCompletion( $processid );
+# OPEN LOCKFILE
+date > $lockfile
 
-# # $self->logDebug( "success", $success );
-# # $self->logDebug( 'DEBUG EXIT' ) and exit;
+$command
 
-# #   #### RUN FILES
-# #   $self->downloadRunFiles( $profilehash, $remote, $local );
+};
+  $self->logDebug("contents", $contents);
 
-# #   # #### EXIT CODE
-# #   # my $exitcode = $self->getExitCode( $local->{exitfile} );
-# #   # $self->logDebug( "exitcode", $exitcode );
- 
-# #   #### IF success IS ZERO, SET STATUS TO 'completed'
-# #   #### OTHERWISE, SET STATUS TO 'error' 
-# #   $self->setFinalStatus( $success );
-  
-# #   return $success;
+  open(OUT, ">$scriptfile") or die "Can't open script file: $scriptfile\n";
+  print OUT $contents;
+  close(OUT);
+  chmod(0777, $scriptfile);
+  $self->logNote("scriptfile printed", $scriptfile);
+}
 
+method remoteCommand ( $command, $scriptfile, $stdoutfile, $stderrfile ) {
+  $self->logDebug( "command", $command );
+  $self->logDebug( "scriptfile", $scriptfile );
+  $self->logDebug( "stdoutfile", $stdoutfile );  
+  $self->logDebug( "stderrfile", $stderrfile );
 
+  my ( $scriptdir ) = $scriptfile =~ /^(.+?)\/[^\/]+$/;
+  $self->logDebug( "scriptdir", $scriptdir );
 
-# # SUBROUTINE    printScriptFile
-# #
-# # PURPOSE
-# #
-# #   RETURN THE JOB HASH FOR THIS STAGE:
-# # 
-# #     command    :  Command line system call,
-# #     label    :  Unique name for job (e.g., to be used by SGE)
-# #     outputfile  :  Location of outputfile
-# #
+  $self->makeRemoteDir( $scriptdir );
+  $self->copyToRemote( $scriptfile, $scriptfile );
 
-# method printScriptFile ( $command, $scriptfile, $exitfile, $lockfile ) {
-#   $self->logDebug("scriptfile", $scriptfile);
+  my($stdout, $stderr, $exit) = $self->ssh()->cmd( $command );
+  $self->logDebug( "stdout", $stdout );
+  $self->logDebug( "stderr", $stderr );
+  $self->logDebug( "exit", $exit );
 
-#   #### CREATE DIR COMMANDS
-#   $self->mkdirCommand($scriptfile);
-
-#   my $contents  =  qq{#!/bin/bash
-
-# # OPEN LOCKFILE
-# date > $lockfile
-
-# $command
-
-# };
-#   $self->logDebug("contents", $contents);
-
-
-
-# # $self->logDebug( "DEBUG EXIT" ) and exit;
-
-
-
-
-#   open(OUT, ">$scriptfile") or die "Can't open script file: $scriptfile\n";
-#   print OUT $contents;
-#   close(OUT);
-#   chmod(0777, $scriptfile);
-#   $self->logNote("scriptfile printed", $scriptfile);
-# }
-
-# method remoteCommand ( $command, $scriptfile, $stdoutfile, $stderrfile ) {
-#   $self->logDebug( "command", $command );
-#   $self->logDebug( "scriptfile", $scriptfile );
-#   $self->logDebug( "stdoutfile", $stdoutfile );  
-#   $self->logDebug( "stderrfile", $stderrfile );
-
-#   my ( $scriptdir ) = $scriptfile =~ /^(.+?)\/[^\/]+$/;
-#   $self->logDebug( "scriptdir", $scriptdir );
-
-#   $self->makeRemoteDir( $scriptdir );
-#   $self->copyToRemote( $scriptfile, $scriptfile );
-
-#   my($stdout, $stderr, $exit) = $self->ssh()->cmd( $command );
-#   $self->logDebug( "stdout", $stdout );
-#   $self->logDebug( "stderr", $stderr );
-#   $self->logDebug( "exit", $exit );
-
-#   return ( $stdout, $stderr, $exit );
-# }
+  return ( $stdout, $stderr, $exit );
+}
 
 method downloadRunFiles ( $profilehash, $remote, $local ) {
   my $files = [ "stdoutfile", "stderrfile", "scriptfile", "exitfile", "lockfile", "usagefile" ];

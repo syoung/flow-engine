@@ -46,6 +46,33 @@ method BUILD ( $args ) {
   #$self->logDebug("$$ args", $args);
 }
 
+
+method stop {
+  $self->logCaller();
+
+  my $workflowdata = {
+    username => $self->username(),
+    projectname => $self->projectname(),
+    workflowname => $self->workflowname(),    
+  };
+  my $processid = $self->getProcessId( $workflowdata );
+  $self->logDebug( "processid", $processid );
+
+# #### 1. 'kill -9' THE PROCESS IDS OF ANY RUNNING STAGE OF THE WORKFLOW
+# #### 2. INCLUDES STAGE PID, App PARENT PID AND App CHILD PID)
+
+#     # $self->logDebug("stages", $stages);
+#     # my $messages = [];
+#     # foreach my $stage ( @$stages )
+#     # {
+#     #     #### OTHERWISE, KILL ALL PIDS
+#     #     push @$messages, $self->util()->killPid($stage->{childpid}) if defined $stage->{childpid};
+#     #     push @$messages, $self->util()->killPid($stage->{parentpid}) if defined $stage->{parentpid};
+#     #     push @$messages, $self->util()->killPid($stage->{stagepid}) if defined $stage->{stagepid};
+#     #     push @$messages, $self->util()->killPid($stage->{workflowpid}) if defined $stage->{workflowpid};
+#     # }
+}
+
 method run ( $dryrun ) {
 =head2
 
@@ -61,6 +88,8 @@ method run ( $dryrun ) {
     
 =cut
 
+  $self->logCaller();
+
   my $profilehash = $self->profilehash();
   $self->logDebug( "profile", $profilehash );
   $self->logDebug("dryrun", $dryrun);
@@ -68,26 +97,36 @@ method run ( $dryrun ) {
   #### TO DO: START PROGRESS UPDATER
 
   #### GENERATE OUTPUT FILE PATHS
-  my $fileroot = $self->fileroot();
+  my $username = $self->username();
+  $self->logDebug( "username", $username );
+  my $fileroot = $self->util()->getFileroot( $username );
+  $self->logDebug( "fileroot", $fileroot );
   my $runfiles = $self->setRunFiles( $fileroot );
 
-  #### REGISTER PROCESS IDS SO WE CAN MONITOR THEIR PROGRESS
-  $self->registerRunInfo( $runfiles->{stdoutfile}, $runfiles->{stderrfile} );
+  #### SET STAGE START TIME
+  my $mysqltime     =    $self->getMysqlTime();
+  $self->logDebug("mysqltime", $mysqltime);
+  $self->started( $mysqltime );
+  
+  #### CLEAR STDOUT/STDERR FILES
+  my $stdoutfile    =    $self->stdoutfile();
+  File::Path::rmtree( $stdoutfile ) if -f $stdoutfile;
+  my $stderrfile    =    $self->stderrfile();
+  File::Path::rmtree( $stderrfile ) if -f $stderrfile;
+  
+  #### ADD out AND err FILES TO stage TABLE
+  $self->saveRunFiles( $runfiles->{stdoutfile}, $runfiles->{stderrfile} );
 
-  #### SET SYSTEM CALL TO POPULATE RUN SCRIPT
+  #### SET SYSTEM CALL TO POPULATE .sh SCRIPT
   my $systemcall = $self->setSystemCall( $profilehash, $runfiles );
 
-  #### ADD STDOUT AND STDERR FILES TO SYSTEM CALL
+  #### ADD out AND err FILES TO SYSTEM CALL
   $systemcall = $self->addOutputFiles( $systemcall, $runfiles->{stdoutfile}, $runfiles->{stderrfile} );
 
-  #### PRINT COMMAND TO .sh FILE
+  #### PRINT COMMAND TO .sh SCRIPT
   my $command = join " \\\n", @$systemcall;
   $self->printScriptFile( $command, $runfiles->{scriptfile}, $runfiles->{exitfile}, $runfiles->{lockfile} );
   
-  #### UPDATE STATUS TO 'running'
-  my $now = $self->table()->db()->now();
-  $self->setStageRunning( $now );
-
   #### RUN
   $self->logDebug("BEFORE SUBMIT command");
   my $commandfile = $runfiles->{scriptfile};
@@ -98,14 +137,6 @@ method run ( $dryrun ) {
   # my $pid = `$commandfile`;
   my $processid = open my $fh, "-|", "/bin/bash $commandfile" or die $!;
   $self->logDebug( "processid", $processid );
-
-  #### ADD processid TO stage TABLE
-  my $stagedata = $self->toData();
-  $stagedata->{ processid } = $processid;
-
-  $self->table()->updateJobs( $stagedata );
-
-
 
   return $processid;
 }
@@ -141,10 +172,10 @@ method mkdirCommand ($file) {
   File::Path::make_path( $directory );
 }
 
-method registerRunInfo ( $stdoutfile, $stderrfile ) {
+method saveRunFiles ( $stdoutfile, $stderrfile ) {
 =head2
 
-  SUBROUTINE    registerRunInfo
+  SUBROUTINE    saveRunFiles
   
   PURPOSE
   
@@ -157,7 +188,7 @@ method registerRunInfo ( $stdoutfile, $stderrfile ) {
       - THE CHILD OF THE STAGE'S APPLICATION
     
 =cut
-  $self->logDebug("$$ Engine::Stage::registerRunInfo()");
+  $self->logDebug("$$ Engine::Stage::saveRunFiles()");
 
   my $username   = $self->username();
   my $projectname   = $self->projectname();
@@ -182,40 +213,6 @@ method registerRunInfo ( $stdoutfile, $stderrfile ) {
     return 0;
   }
 
-  return 1;
-}
-
-method register ( $status ) {
-#### SET STATUS TO waiting FOR A STAGE IN THE stage TABLE
-  $self->logDebug("PID $$");
-  
-  #### SET SELF _status TO waiting
-  $self->status('waiting');
-
-  my $username = $self->username();
-  my $projectname = $self->projectname();
-  my $workflowname = $self->workflowname();
-  my $workflownumber = $self->workflownumber();
-  my $appnumber = $self->appnumber();
-
-  #### UPDATE status TO waiting IN TABLE stage
-  my $query = qq{UPDATE stage
-  SET status='waiting'
-  WHERE username = '$username'
-  AND projectname = '$projectname'
-  AND workflowname = '$workflowname'
-  AND workflownumber = '$workflownumber'
-  AND appnumber = '$appnumber'};
-  $self->logDebug("$$ $query");
-  my $success = $self->table()->db()->do($query);
-  $self->logDebug("$$ insert success", $success);
-  if ( not $success )
-  {
-    warn "Stage::register  Could not insert entry for stage $self->stagenumber() into 'stage' table\n";
-    return 0;
-  }
-
-  $self->logDebug("$$ Successful insert!");
   return 1;
 }
 
@@ -256,20 +253,6 @@ method isComplete () {
   return 0 if not defined $complete or not $complete;
   return 1;
 }
-
-
-method initialiseRunTimes ($mysqltime) {
-  $self->logDebug("mysqltime", $mysqltime);
-  my $set = qq{
-queued = '$mysqltime',
-started = '$mysqltime',
-completed = ''};
-  #$self->logDebug("$$ set", $set);
-
-  $self->setFields($set);
-}
-
-
 
 method toString () {
   print $self->_toString();
