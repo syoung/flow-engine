@@ -76,7 +76,7 @@ has 'appname'        =>  ( isa => 'Str', is => 'rw', required => 1  );
 has 'apptype'        =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'outputdir'      =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'scriptfile'     =>  ( isa => 'Str', is => 'rw', required => 0 );
-has 'installdir'     =>  ( isa => 'Str', is => 'rw', required => 1  );
+has 'installdir'     =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'version'        =>  ( isa => 'Str', is => 'rw', required => 0  );
 has 'scheduler'      =>  ( isa => 'Str|Undef', is => 'rw', default  =>  "local" );
 
@@ -123,7 +123,10 @@ has 'scriptsdir'     =>  (
 );
 
 # Hash/Array
-has 'profilehash'    =>  ( isa => 'HashRef|Undef', is => 'rw' );
+has 'profilehash'    =>  ( 
+  isa => 'HashRef|Undef', 
+  is => 'rw' 
+);
 
 has 'fields'         =>  ( 
   isa => 'ArrayRef[Str|Undef]', 
@@ -181,9 +184,24 @@ has 'envar'  => (
 );
 
 
-method BUILD ($args) {
-  #$self->logDebug("$$ Stage::BUILD  args:");
-  #$self->logDebug("$$ args", $args);
+method BUILD ( $args ) {
+  $self->logNote("args", $args, 1);
+  if ( defined $args->{ profile } and not defined $args->{ profilehash } ) {
+    # $self->logDebug( "args->{ profile }", $args->{ profile } );
+    my $profileyaml = $args->{ profile };
+    # $self->logDebug( "profileyaml", $profileyaml );
+    my $profile = Util::Profile->new();
+    # $self->logDebug( "profile", $profile );
+    my $profilehash = $profile->yamlToData( $profileyaml );
+    # $self->logDebug( "profilehash", $profilehash );
+
+    $self->profilehash( $profilehash );
+  }
+
+  if ( defined $args->{ stageparameters } ) {
+    # $self->logNote( "args->{ stageparameters }", $args->{ stageparameters } );
+    $self->stageparameters( $args->{ stageparameters } );
+  }
 }
 
 method setStdoutfile {
@@ -308,12 +326,20 @@ method setSystemCall ( $profilehash, $runfiles ) {
   my $envar         =  $self->envar();
   my $stagenumber   =  $self->appnumber();  
   my $basedir       = $self->conf()->getKey("core:BASEDIR");
+
+  #### GET FILEROOT IF NOT DEFINED
+  $self->logDebug( "username", $username );
+  if ( not defined $fileroot or $fileroot eq "" ) {
+    $fileroot = $self->util()->getFileroot( $username );
+  }  
+  $self->logDebug( "fileroot", $fileroot );
+
   #### ADD PERL5LIB TO ENABLE EXTERNAL SCRIPTS TO USE OUR MODULES
   my $installdir = $self->conf()->getKey("core:INSTALLDIR");
   my $perl5lib = $ENV{"PERL5LIB"};
   $self->logDebug( "installdir: $installdir" );
   $self->logDebug( "perl5lib: $perl5lib" );
-  $self->logDebug("$$ fileroot", $fileroot);
+  $self->logDebug( "fileroot", $fileroot );
 
   my $stageparameters =  $self->stageparameters();
   $self->logDebug( "stageparameters", $stageparameters );
@@ -465,15 +491,15 @@ method parsePreScriptFile ($file) {
 }
 
 method replaceTags ( $string, $profilehash, $userhome, $fileroot, $projectname, $workflowname, $installdir, $basedir ) {
+  $self->logCaller();
   $self->logDebug( "profilehash", $profilehash );
-  # $self->logCaller();
-  # $self->logDebug( "string", $string ); 
-  # $self->logDebug( "profilehash", $profilehash ); 
-  # $self->logDebug( "installdir", $installdir );
+  $self->logDebug( "string", $string ); 
+  $self->logDebug( "basedir", $basedir );
 
-  my $profile = Util::Profile->new();
-  $profile->profilehash( $profilehash );
-  if ( defined $profile ) {
+  if ( defined $profilehash ) {
+    my $profile = Util::Profile->new();
+    $profile->profilehash( $profilehash );
+
     while ( $string =~ /<profile:([^>]+)>/ ) {
       my $keystring = $1;
       # $self->logDebug( "string", $string );
@@ -906,11 +932,6 @@ method _toString {
   }
   $string .= "\n\n";
 }
-
-
-1;
-
-
 
 method setStageJob {
 

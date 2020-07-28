@@ -28,7 +28,7 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../";
 
-class Engine::Remote::Queue::Stage with (Util::Logger, Engine::Common::Stage, Exchange) {
+class Engine::Remote::Queue::Stage with (Util::Logger, Engine::Common::Stage, Exchange, Util::Timer) {
 
 #### EXTERNAL MODULES
 use File::Path;
@@ -101,7 +101,7 @@ method run ( $dryrun ) {
   $self->sendTask( $queuename, $stagedata );
 
   #### SET STATUS=queued
-  my $now = $self->table()->db()->now();
+  my $now = $self->getMysqlTime();
   $self->table()->setStageQueued( $stagedata, $now );
 }
 

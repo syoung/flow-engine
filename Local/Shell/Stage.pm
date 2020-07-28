@@ -31,6 +31,8 @@ class Engine::Local::Shell::Stage with (Engine::Common::Stage,
   Util::Logger, 
   Util::Timer) {
 
+use Util::Profile;
+
 #### SEE Engine::Common::Stage
 #### EXTERNAL MODULES
 #### INTERNAL MODULES
@@ -40,11 +42,6 @@ class Engine::Local::Shell::Stage with (Engine::Common::Stage,
 # Str
 # HashRef/ArrayRef
 # Class/Object
-
-method BUILD ( $args ) {
-  #$self->logDebug("$$ Stage::BUILD  args:");
-  #$self->logDebug("$$ args", $args);
-}
 
 
 method stop {
@@ -128,13 +125,11 @@ method run ( $dryrun ) {
   $self->printScriptFile( $command, $runfiles->{scriptfile}, $runfiles->{exitfile}, $runfiles->{lockfile} );
   
   #### RUN
-  $self->logDebug("BEFORE SUBMIT command");
   my $commandfile = $runfiles->{scriptfile};
   $self->logDebug( "commandfile", $commandfile );
 
   # #### GET PID
-  # push @$systemcall, ' & echo $!';  
-  # my $pid = `$commandfile`;
+  $self->logDebug("BEFORE SUBMIT command");
   my $processid = open my $fh, "-|", "/bin/bash $commandfile" or die $!;
   $self->logDebug( "processid", $processid );
 

@@ -45,8 +45,8 @@ sub new {
 
   $hosttype = cowCase( $hosttype );
   $runtype = cowCase( $runtype );
-  print "Engine::Workflow    runtype: $runtype\n";
-  print "Engine::Workflow    hosttype: $hosttype\n";
+  # print "Engine::Workflow    runtype: $runtype\n";
+  # print "Engine::Workflow    hosttype: $hosttype\n";
 
   my $location    = "$path/$hosttype/$runtype/Workflow.pm";
   $class          = "Engine::" . $hosttype . "::" . $runtype . "::Workflow";
